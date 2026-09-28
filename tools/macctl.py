@@ -365,6 +365,7 @@ def cmd_send(rest: Rest, namespace) -> int:
 def cmd_commands(rest: Rest, namespace) -> int:
     """Was der Mac annimmt — die Liste steht in remote_commands.HANDLERS."""
     print("Lesend:   status  config  logs  files  diag-upload  diag-db  versions  legacy-upload")
+    print("          warnings  warning-text name=<zip>  warning-part name=<zip> member=<datei> offset=<n>")
     print("Eingreifend (brauchen remote_allow_actions):")
     print("          sync  cleanup  set  customer-stats  bot  rustdesk  update")
     print()

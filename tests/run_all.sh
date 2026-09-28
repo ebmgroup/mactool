@@ -25,6 +25,7 @@ TESTS=(
   test_schema.py       # Accept-Profile / Content-Profile must be sent
   test_integrity.py    # kaputte super.db: kein Upload, dafuer eine Mail
   test_remote.py       # Fernzugriff: Reservieren, Verfall, Maskierung, Diagnose
+  test_warnings.py     # Warn-ZIPs des Bots: Suche, Namenspruefung, Bildschirmtexte, Stuecke
 )
 
 mkdir -p "$WORKDIR"

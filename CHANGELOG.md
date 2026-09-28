@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.0.123 — 2026-09-28
+- **Neue lesende Befehle für die Warn-Archive des Bots.** GramAddict legt bei Auffälligkeiten
+  ein ZIP nach `warnings/` (Screenshot, UI-Abbild, Log-Auszug) — nur dort steht, welches
+  Fenster Instagram tatsächlich gezeigt hat; der Bot schreibt den Text nie ins Log
+  („Probably block dialog is shown…")
+  - `warnings` listet die ZIPs (gesucht bis drei Ebenen unter GramBotStorage, dessen
+    Elternordner und dem Home-Verzeichnis)
+  - `warning-text name=<zip>` liefert die Bildschirmtexte (Text + Beschreibung aller Knoten)
+    und das Log-Ende
+  - `warning-part` holt eine Datei stückweise (≤ 150.000 Zeichen je Antwort, die Queue
+    kappt bei 200.000); `tools/warning_get.py` setzt sie lokal zusammen
+- Nur Dateinamen aus den gefundenen `warnings`-Ordnern, nur `.zip`; nichts wird verändert
+
 ## v1.0.122 — 2026-09-08
 - **Neuer Befehl `set`: Einstellungen lassen sich aus der Ferne ändern.** Damit ist eine
   Korrektur an 13 Macs ein Befehl statt 13 RustDesk-Sitzungen —

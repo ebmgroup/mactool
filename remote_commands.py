@@ -403,6 +403,46 @@ def _cmd_update(args: dict) -> dict:
     return perform_update(args.get("version") or None)
 
 
+# ── Warn-Archive des Bots (rein lesend) ───────────────────────────────
+
+
+def _warning_dirs() -> list:
+    from warnings_access import default_bases, find_warning_dirs
+
+    return find_warning_dirs(default_bases(get_config().sqlite_db_path))
+
+
+def _cmd_warnings(args: dict) -> dict:
+    """Die ZIPs in den warnings-Ordnern des Bots, neueste zuerst."""
+    from warnings_access import list_warnings
+
+    return list_warnings(_warning_dirs(), args.get("grep") or None)
+
+
+def _cmd_warning_text(args: dict) -> dict:
+    """Was im Warn-ZIP steht: Dateien, Bildschirmtexte aus dem UI-Abbild, Log-Ende."""
+    from warnings_access import WarningsError, resolve_warning, warning_text
+
+    try:
+        return warning_text(resolve_warning(_warning_dirs(), args.get("name")))
+    except WarningsError as e:
+        raise CommandError(str(e)) from e
+
+
+def _cmd_warning_part(args: dict) -> dict:
+    """Ein Stück einer Datei aus dem Warn-ZIP (base64), z. B. der Screenshot."""
+    from warnings_access import WarningsError, resolve_warning, warning_part
+
+    try:
+        offset = int(args.get("offset") or 0)
+    except (TypeError, ValueError) as e:
+        raise CommandError("offset muss eine Zahl sein") from e
+    try:
+        return warning_part(resolve_warning(_warning_dirs(), args.get("name")), args.get("member") or "", offset)
+    except WarningsError as e:
+        raise CommandError(str(e)) from e
+
+
 # ── Registrierung ─────────────────────────────────────────────────────
 
 # name -> (handler, ist_eingreifend)
@@ -415,6 +455,9 @@ HANDLERS: dict[str, tuple] = {
     "diag-db": (_cmd_diag_db, False),
     "versions": (_cmd_versions, False),
     "legacy-upload": (_cmd_legacy_upload, False),
+    "warnings": (_cmd_warnings, False),
+    "warning-text": (_cmd_warning_text, False),
+    "warning-part": (_cmd_warning_part, False),
     "sync": (_cmd_sync, True),
     "cleanup": (_cmd_cleanup, True),
     "set": (_cmd_set, True),
