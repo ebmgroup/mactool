@@ -407,9 +407,13 @@ def _cmd_update(args: dict) -> dict:
 
 
 def _warning_dirs() -> list:
-    from warnings_access import default_bases, find_warning_dirs
+    from warnings_access import default_bases, default_fixed, find_warning_dirs
 
-    return find_warning_dirs(default_bases(get_config().sqlite_db_path))
+    cfg = get_config()
+    return find_warning_dirs(
+        default_bases(cfg.sqlite_db_path),
+        fixed=default_fixed(cfg.sqlite_db_path, getattr(cfg, "bot_app_path", None)),
+    )
 
 
 def _cmd_warnings(args: dict) -> dict:

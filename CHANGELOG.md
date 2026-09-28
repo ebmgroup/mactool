@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.0.124 — 2026-09-28
+- **Fix: `warnings` hielt den Fernzugriff an.** v1.0.123 durchsuchte auch das
+  Home-Verzeichnis. Dabei fasst macOS geschützte Ordner (Dokumente, Downloads, …) an und
+  fragt auf dem Bildschirm nach einer Berechtigung — der Aufruf wartet, bis jemand antwortet,
+  und mit ihm Poll-Schleife und Lebenszeichen (mac05 stand still). Jetzt wird nur noch der
+  Speicherordner (`GramBotStorage`) flach durchsucht; außerhalb werden nur feste Pfade
+  geprüft (`Desktop/warnings`, `~/warnings`, neben der Bot-App), nie durchsucht
+
 ## v1.0.123 — 2026-09-28
 - **Neue lesende Befehle für die Warn-Archive des Bots.** GramAddict legt bei Auffälligkeiten
   ein ZIP nach `warnings/` (Screenshot, UI-Abbild, Log-Auszug) — nur dort steht, welches

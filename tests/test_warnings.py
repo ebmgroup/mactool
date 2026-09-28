@@ -46,7 +46,15 @@ with tempfile.TemporaryDirectory() as tmp:
         z.writestr("logs.txt", "\n".join(f"Zeile {i}" for i in range(100)))
     (wdir / "notiz.txt").write_text("x")
 
-    dirs = wa.find_warning_dirs([storage, storage.parent, home])
+    (home / "Documents" / "tief" / "warnings").mkdir(parents=True)  # darf NIE durchsucht werden
+    (storage.parent / "warnings").mkdir()  # fester Kandidat
+    bases = wa.default_bases(str(storage / "super.db"))
+    check("durchsucht nur den Speicherordner", bases == [storage], bases)
+    fixed = [storage.parent / "warnings", home / "warnings"]
+    dirs = wa.find_warning_dirs(bases, fixed=fixed)
+    check("findet Speicherordner + festen Kandidaten, nicht Documents",
+          set(dirs) == {wdir.resolve(), (storage.parent / "warnings").resolve()}, dirs)
+    dirs = wa.find_warning_dirs(bases)
     check("findet den warnings-Ordner einmal", dirs == [wdir.resolve()], dirs)
 
     lst = wa.list_warnings(dirs)
