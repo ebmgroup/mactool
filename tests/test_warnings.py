@@ -45,6 +45,11 @@ with tempfile.TemporaryDirectory() as tmp:
         z.writestr("dump.xml", XML)
         z.writestr("logs.txt", "\n".join(f"Zeile {i}" for i in range(100)))
     (wdir / "notiz.txt").write_text("x")
+    cdir = storage / "crashes"
+    cdir.mkdir()
+    crash = "3.7.9b0_2026-09-27-12-00-00.zip"
+    with zipfile.ZipFile(cdir / crash, "w") as z:
+        z.writestr("hierarchy.xml", XML)
 
     (home / "Documents" / "tief" / "warnings").mkdir(parents=True)  # darf NIE durchsucht werden
     (storage.parent / "warnings").mkdir()  # fester Kandidat
@@ -53,12 +58,15 @@ with tempfile.TemporaryDirectory() as tmp:
     fixed = [storage.parent / "warnings", home / "warnings"]
     dirs = wa.find_warning_dirs(bases, fixed=fixed)
     check("findet Speicherordner + festen Kandidaten, nicht Documents",
-          set(dirs) == {wdir.resolve(), (storage.parent / "warnings").resolve()}, dirs)
+          set(dirs) == {wdir.resolve(), cdir.resolve(), (storage.parent / "warnings").resolve()}, dirs)
     dirs = wa.find_warning_dirs(bases)
-    check("findet den warnings-Ordner einmal", dirs == [wdir.resolve()], dirs)
+    check("findet warnings und crashes je einmal", set(dirs) == {wdir.resolve(), cdir.resolve()}, dirs)
 
     lst = wa.list_warnings(dirs)
-    check("listet nur ZIPs", [f["name"] for f in lst["files"]] == [name], lst)
+    check("listet nur ZIPs, beide Arten", sorted(f["name"] for f in lst["files"]) == sorted([name, crash]), lst)
+    check("Art je Datei", {f["name"]: f["art"] for f in lst["files"]} == {name: "warning", crash: "crash"}, lst)
+    check("Filter art=crash", [f["name"] for f in wa.list_warnings(dirs, art="crash")["files"]] == [crash])
+    check("Crash-ZIP lesbar", wa.warning_text(wa.resolve_warning(dirs, crash))["screen"][0]["text"] == "Try Again Later")
     check("grep filtert", wa.list_warnings(dirs, "2025")["total"] == 0)
 
     for bad in ["../../etc/passwd", "notiz.txt", "fehlt.zip", None]:

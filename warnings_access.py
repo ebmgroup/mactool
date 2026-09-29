@@ -1,4 +1,6 @@
-"""Warn-Archive des Bots lesen — rein lesend.
+"""Warn- und Crash-Archive des Bots lesen — rein lesend.
+
+Seit v1.0.125 auch `crashes/` („Crash saved as crashes/….zip", gleicher Aufbau).
 
 GramAddict legt bei auffälligen Situationen ein ZIP in einen Ordner `warnings/`
 („Warning saved as warnings/3.7.9b0_2026-09-27-20-58-23.zip"): Screenshot (.png),
@@ -31,6 +33,8 @@ from xml.etree import ElementTree
 # Pfade, nie eine Suche.
 SEARCH_DEPTH = 2
 SKIP_DIRS = {"logs", "node_modules", ".git"}
+# Ordnername → Art im Ergebnis.
+ARCHIV_ORDNER = {"warnings": "warning", "crashes": "crash"}
 
 MAX_LISTED = 200
 MAX_TEXT_NODES = 300
@@ -53,7 +57,7 @@ def find_warning_dirs(bases: list[Path], depth: int = SEARCH_DEPTH, fixed: list[
     for f in fixed or []:
         f = f.expanduser()
         try:
-            if f.name == "warnings" and f.is_dir() and f.resolve() not in seen:
+            if f.name in ARCHIV_ORDNER and f.is_dir() and f.resolve() not in seen:
                 seen.add(f.resolve())
                 found.append(f.resolve())
         except OSError:
@@ -68,7 +72,7 @@ def find_warning_dirs(bases: list[Path], depth: int = SEARCH_DEPTH, fixed: list[
             if len(here.parts) - base_depth >= depth:
                 dirs[:] = []
             dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not d.startswith(".")]
-            if here.name == "warnings":
+            if here.name in ARCHIV_ORDNER and here != base:
                 resolved = here.resolve()
                 if resolved not in seen:
                     seen.add(resolved)
@@ -85,16 +89,21 @@ def default_bases(sqlite_db_path: str) -> list[Path]:
 def default_fixed(sqlite_db_path: str, bot_app_path: str | None = None) -> list[Path]:
     """Feste Kandidaten ausserhalb — nur geprueft, nie durchsucht."""
     storage = Path(sqlite_db_path).expanduser().parent
-    out = [storage.parent / "warnings", Path.home() / "warnings"]
-    if bot_app_path:
-        out.append(Path(bot_app_path).expanduser().parent / "warnings")
+    out = []
+    for ordner in ARCHIV_ORDNER:
+        out += [storage.parent / ordner, Path.home() / ordner]
+        if bot_app_path:
+            out.append(Path(bot_app_path).expanduser().parent / ordner)
     return out
 
 
-def list_warnings(dirs: list[Path], grep: str | None = None) -> dict:
-    """ZIP-Dateien der Warn-Ordner, neueste zuerst."""
+def list_warnings(dirs: list[Path], grep: str | None = None, art: str | None = None) -> dict:
+    """ZIP-Dateien der Warn- und Crash-Ordner, neueste zuerst. `art`: warning | crash."""
     entries = []
     for d in dirs:
+        d_art = ARCHIV_ORDNER.get(d.name, "warning")
+        if art and art != d_art:
+            continue
         for p in d.glob("*.zip"):
             try:
                 st = p.stat()
@@ -105,6 +114,7 @@ def list_warnings(dirs: list[Path], grep: str | None = None) -> dict:
             entries.append(
                 {
                     "name": p.name,
+                    "art": d_art,
                     "dir": str(d),
                     "bytes": st.st_size,
                     "modified": datetime.fromtimestamp(st.st_mtime).isoformat(timespec="seconds"),

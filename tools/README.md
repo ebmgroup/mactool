@@ -93,7 +93,7 @@ Laufen immer, auch wenn eingreifende Befehle gesperrt sind.
 | `diag-db` | super.db-Integrität und Zeilenzahlen je Tabelle |
 | `versions` | verfügbare Versions-Tags |
 | `legacy-upload` | Status der alten `upload-macXX.py`-LaunchAgents |
-| `warnings --grep 2026-09-27` | Warn-ZIPs des Bots (`warnings/…zip`), neueste zuerst |
+| `warnings --grep 2026-09-27 [art=crash]` | Warn- und Crash-ZIPs des Bots (`warnings/`, `crashes/`), neueste zuerst |
 | `warning-text name=<zip>` | Inhalt des ZIPs + **Bildschirmtexte** aus dem UI-Abbild — was Instagram gezeigt hat |
 | `warning-part name=<zip> member=<datei> offset=<n>` | ein Stück einer Datei (base64); ganz holen mit `tools/warning_get.py` |
 

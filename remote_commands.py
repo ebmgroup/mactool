@@ -420,7 +420,10 @@ def _cmd_warnings(args: dict) -> dict:
     """Die ZIPs in den warnings-Ordnern des Bots, neueste zuerst."""
     from warnings_access import list_warnings
 
-    return list_warnings(_warning_dirs(), args.get("grep") or None)
+    art = args.get("art") or None
+    if art not in (None, "warning", "crash"):
+        raise CommandError("art muss warning oder crash sein")
+    return list_warnings(_warning_dirs(), args.get("grep") or None, art)
 
 
 def _cmd_warning_text(args: dict) -> dict:

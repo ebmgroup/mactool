@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.125 — 2026-09-29
+- **Auch die Crash-Archive des Bots sind lesbar** (`crashes/`, „Crash saved as crashes/….zip"),
+  gleicher Aufbau wie `warnings/`. `warnings` listet beide, jede Datei trägt `art`
+  (`warning` | `crash`); `warnings art=crash` filtert. `warning-text` und `warning-part`
+  nehmen ZIPs aus beiden Ordnern. Gesucht wird weiter nur flach in `GramBotStorage`
+
 ## v1.0.124 — 2026-09-28
 - **Fix: `warnings` hielt den Fernzugriff an.** v1.0.123 durchsuchte auch das
   Home-Verzeichnis. Dabei fasst macOS geschützte Ordner (Dokumente, Downloads, …) an und
