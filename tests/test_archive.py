@@ -133,8 +133,11 @@ with tempfile.TemporaryDirectory() as tmp:
     js = [k for k in oben if k.endswith(".json")]
     meta = json.loads(oben[sorted(js)[0]])
     check("Pfad mac/datum/art-name", all(k.startswith("mac05/2026-09-") and ("/warning-" in k or "/crash-" in k) for k in oben), sorted(oben))
+    check("je ZIP Bild, JSON und Log", len(oben) == 6, sorted(oben))
     check("Metadaten mit reason, Bildschirm, Log, Bild", meta.get("reason", {}).get("account") == "konto"
           and meta["screen"][0]["text"] == "Try again later" and meta["log_tail"][-1] == "letzte" and meta["bild"].endswith(".jpg"), meta)
+    check("Log-Ende als eigene Datei", meta.get("log", "").endswith(".log") and oben[meta["log"]] == b"a\nb\nletzte"
+          and "_log" not in meta, meta)
     r2 = au.upload_archive(client, "mac05", storage, now=jetzt)
     check("zweiter Lauf lädt nichts doppelt", r2["uploaded"] == 0, r2)
 
@@ -144,7 +147,12 @@ with tempfile.TemporaryDirectory() as tmp:
     oben["mac06/2026-09-10/crash-fremd.json"] = b"{}"
     n = au.cleanup_bucket(client, "mac05", jetzt)
     check("Bucket: alte Tage dieses Macs weg", n == 2 and not any(k.startswith("mac05/2026-09-10") for k in oben), sorted(oben))
-    check("Bucket: anderer Mac und neue Tage bleiben", "mac06/2026-09-10/crash-fremd.json" in oben and len([k for k in oben if k.startswith("mac05/")]) == 4, sorted(oben))
+    check("Bucket: anderer Mac und neue Tage bleiben", "mac06/2026-09-10/crash-fremd.json" in oben and len([k for k in oben if k.startswith("mac05/")]) == 6, sorted(oben))
+
+    # Neuer Stand → alles im Fenster noch einmal
+    st = au._load_state(); st["stand"] = 1; au._save_state(st)
+    r3 = au.upload_archive(client, "mac05", storage, now=jetzt)
+    check("neuer Stand lädt das Fenster neu", r3["uploaded"] == 2, r3)
 
 print()
 if failures:

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.127 — 2026-09-29
+- Archiv: je ZIP zusätzlich das **Log-Ende als Textdatei** (`…/<art>-<name>.log`, letzte
+  400 Zeilen von `logs.txt`) — für Beispiele an den Bot-Entwickler im Dashboard
+- Einmalig werden die ZIPs der letzten 7 Tage neu hochgeladen (Zustand `stand` = 2),
+  damit auch sie ein Log haben
+
 ## v1.0.126 — 2026-09-29
 - **Warn- und Crash-Archive fürs Dashboard** (`archive_uploader.py`). Nach jedem Sync gehen
   die ZIPs der letzten 7 Tage in den eigenen Bucket `bot-archiv`

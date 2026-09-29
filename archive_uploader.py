@@ -51,6 +51,11 @@ MAX_UPLOADS_PER_RUN = 400
 MAX_CLOCK_SKEW = timedelta(days=1)
 JPEG_MAX_PX = 1000
 JPEG_QUALITY = 60
+# Log-Ende als eigene Textdatei — fuer Beispiele an den Bot-Entwickler (v1.0.127).
+LOG_ZEILEN = 400
+# Aendert sich, was je ZIP hochgeladen wird, zaehlt der Zustand neu: alles im
+# 7-Tage-Fenster wird dann noch einmal hochgeladen (x-upsert ueberschreibt).
+STAND = 2
 
 # 3.7.9b0_2026-09-27-20-58-23.zip
 NAME_RE = re.compile(r"^[0-9][0-9A-Za-z.]*_(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})\.zip$")
@@ -166,6 +171,7 @@ def archiv_eintrag(zip_path: Path, art: str, mac: str) -> tuple[dict, bytes | No
         if txt:
             lines = z.read(txt).decode("utf-8", "replace").splitlines()
             meta["log_tail"] = [l[:400] for l in lines[-25:]]
+            meta["_log"] = "\n".join(lines[-LOG_ZEILEN:])
         bild = next((n for n in names if n.lower().endswith(".png")), None)
         if bild:
             png = z.read(bild)
@@ -218,6 +224,9 @@ def upload_archive(client, mac: str, storage_dir: Path, now: datetime | None = N
     now = now or datetime.now()
     grenze = now - timedelta(days=UPLOAD_DAYS)
     state = _load_state()
+    if state.get("stand") != STAND:
+        state["hochgeladen"] = {}
+        state["stand"] = STAND
     oben: dict = state.get("hochgeladen", {})
 
     kandidaten = []
@@ -233,6 +242,10 @@ def upload_archive(client, mac: str, storage_dir: Path, now: datetime | None = N
         try:
             meta, png = archiv_eintrag(p, art, mac)
             stamm = f"{mac}/{nd:%Y-%m-%d}/{art}-{p.stem}"
+            log_text = meta.pop("_log", None)
+            if log_text:
+                _upload(client, f"{stamm}.log", log_text.encode("utf-8"), "text/plain; charset=utf-8")
+                meta["log"] = f"{stamm}.log"
             if png:
                 bild, ctype = _jpeg(png)
                 ext = "jpg" if ctype == "image/jpeg" else "png"
