@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.0.126 — 2026-09-29
+- **Warn- und Crash-Archive fürs Dashboard** (`archive_uploader.py`). Nach jedem Sync gehen
+  die ZIPs der letzten 7 Tage in den eigenen Bucket `bot-archiv`
+  (`<mac>/<JJJJ-MM-TT>/<art>-<name>.jpg|.json`): Screenshot mit `sips` verkleinert
+  (~550 KB → ~65 KB), dazu `reason.json` (Account, Zeit, Grund), Bildschirmtexte und
+  Log-Ende. SK TEST 3 zeigt sie je Account mit Screenshot
+- Bucket: Tage älter als 7 werden einmal täglich gelöscht (nur die dieses Macs)
+- **Mac: ZIPs älter als 60 Tage werden einmal täglich gelöscht** — nur wenn alle Regeln
+  stimmen: direkt in `GramBotStorage/warnings|crashes`, Name im Muster des Bots,
+  Namensdatum UND Dateidatum älter als 60 Tage, Mac-Uhr höchstens 1 Tag neben der
+  Datenbank (ohne Serverzeit wird nichts gelöscht). Frist fest, nicht einstellbar
+- Befehle `archive-upload` und `archive-cleanup` (Vorschau, mit `ausfuehren=true` echt)
+
 ## v1.0.125 — 2026-09-29
 - **Auch die Crash-Archive des Bots sind lesbar** (`crashes/`, „Crash saved as crashes/….zip"),
   gleicher Aufbau wie `warnings/`. `warnings` listet beide, jede Datei trägt `art`

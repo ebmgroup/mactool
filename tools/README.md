@@ -110,6 +110,8 @@ Brauchen `remote_allow_actions` (ab Werk an, im Dashboard unter „Fernzugriff" 
 | `bot --action start\|stop\|restart` | Bot steuern |
 | `rustdesk --action start\|stop` | `stop` schaltet nur den Wächter ab, beendet kein RustDesk |
 | `update --version v1.0.122` | Version wechseln; der Dienst startet danach neu |
+| `archive-upload` | Warn-/Crash-ZIPs der letzten 7 Tage jetzt hochladen (sonst nach jedem Sync) |
+| `archive-cleanup [ausfuehren=true]` | ZIPs älter als 60 Tage auf dem Mac löschen — ohne `ausfuehren=true` nur Vorschau |
 
 ### Optionen
 

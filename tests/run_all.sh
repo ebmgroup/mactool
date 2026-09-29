@@ -26,6 +26,7 @@ TESTS=(
   test_integrity.py    # kaputte super.db: kein Upload, dafuer eine Mail
   test_remote.py       # Fernzugriff: Reservieren, Verfall, Maskierung, Diagnose
   test_warnings.py     # Warn-ZIPs des Bots: Suche, Namenspruefung, Bildschirmtexte, Stuecke
+  test_archive.py      # Archiv: Upload 7 Tage, Bucket 7 Tage, lokal NIE juenger als 60 Tage
 )
 
 mkdir -p "$WORKDIR"

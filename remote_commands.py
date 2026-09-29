@@ -450,6 +450,27 @@ def _cmd_warning_part(args: dict) -> dict:
         raise CommandError(str(e)) from e
 
 
+def _cmd_archive_upload(args: dict) -> dict:
+    """Warn-/Crash-ZIPs der letzten 7 Tage jetzt hochladen (sonst nach jedem Sync)."""
+    from supabase import create_client
+    from archive_uploader import upload_archive
+
+    cfg = get_config()
+    client = create_client(cfg.supabase_url, cfg.supabase_key)
+    storage = Path(cfg.sqlite_db_path).expanduser().parent
+    return upload_archive(client, cfg.server_name, storage)
+
+
+def _cmd_archive_cleanup(args: dict) -> dict:
+    """ZIPs älter als 60 Tage auf dem Mac löschen. Ohne `ausfuehren=true` nur Vorschau."""
+    from archive_uploader import cleanup_local, server_now
+
+    cfg = get_config()
+    storage = Path(cfg.sqlite_db_path).expanduser().parent
+    ausfuehren = args.get("ausfuehren") is True or str(args.get("ausfuehren")).lower() == "true"
+    return cleanup_local(storage, server_now(cfg.supabase_url, cfg.supabase_key), ausfuehren=ausfuehren)
+
+
 # ── Registrierung ─────────────────────────────────────────────────────
 
 # name -> (handler, ist_eingreifend)
@@ -472,6 +493,8 @@ HANDLERS: dict[str, tuple] = {
     "bot": (_cmd_bot, True),
     "rustdesk": (_cmd_rustdesk, True),
     "update": (_cmd_update, True),
+    "archive-upload": (_cmd_archive_upload, True),
+    "archive-cleanup": (_cmd_archive_cleanup, True),
 }
 
 # Befehle, nach denen sich der Prozess selbst beendet — das Ergebnis muss

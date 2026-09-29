@@ -701,6 +701,23 @@ class SyncManager:
                     "error": str(e)[:500],
                 }
 
+            # Warn-/Crash-Archive des Bots (Screenshots fuer SK TEST 3, 7 Tage)
+            # und lokales Aufraeumen nach 60 Tagen — siehe archive_uploader.py.
+            try:
+                from archive_uploader import run_archive
+
+                sync_result["archive"] = run_archive(
+                    self.sb_client,
+                    self.server_prefix,
+                    self.db_path.parent,
+                    self.supabase_url,
+                    self.supabase_key,
+                )
+                logger.info(f"Archiv: {sync_result['archive']}")
+            except Exception as e:
+                logger.error(f"Archiv fehlgeschlagen (nicht schlimm): {e}")
+                sync_result["archive"] = {"status": "error", "error": str(e)[:500]}
+
             # Summary
             if self._skipped_columns:
                 sync_result["skipped_columns"] = {

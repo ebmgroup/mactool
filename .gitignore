@@ -32,3 +32,5 @@ sync_test.log
 
 # macOS
 .DS_Store
+
+archive_state.json
