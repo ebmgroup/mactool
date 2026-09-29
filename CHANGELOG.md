@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.0.128 — 2026-09-29
+- Archiv: je ZIP zusätzlich die **`hierarchy.xml`** (UI-Abbild des Bildschirms) als eigene Datei
+  (`…/<art>-<name>.xml`) — kommt im Dashboard mit in den Download eines Falls
+- Einmalig alles im 7-Tage-Fenster neu (Zustand `stand` = 3)
+
 ## v1.0.127 — 2026-09-29
 - Archiv: je ZIP zusätzlich das **Log-Ende als Textdatei** (`…/<art>-<name>.log`, letzte
   400 Zeilen von `logs.txt`) — für Beispiele an den Bot-Entwickler im Dashboard

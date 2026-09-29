@@ -55,7 +55,7 @@ JPEG_QUALITY = 60
 LOG_ZEILEN = 400
 # Aendert sich, was je ZIP hochgeladen wird, zaehlt der Zustand neu: alles im
 # 7-Tage-Fenster wird dann noch einmal hochgeladen (x-upsert ueberschreibt).
-STAND = 2
+STAND = 3  # 3: zusaetzlich hierarchy.xml (v1.0.128)
 
 # 3.7.9b0_2026-09-27-20-58-23.zip
 NAME_RE = re.compile(r"^[0-9][0-9A-Za-z.]*_(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})\.zip$")
@@ -163,8 +163,9 @@ def archiv_eintrag(zip_path: Path, art: str, mac: str) -> tuple[dict, bytes | No
                 meta["reason_fehler"] = str(e)[:200]
         xml = next((n for n in names if n.lower().endswith(".xml")), None)
         if xml:
+            meta["_xml"] = z.read(xml)
             try:
-                meta["screen"] = screen_texts(z.read(xml))[:120]
+                meta["screen"] = screen_texts(meta["_xml"])[:120]
             except Exception as e:
                 meta["screen_fehler"] = str(e)[:200]
         txt = "logs.txt" if "logs.txt" in names else next((n for n in names if n.endswith(".txt")), None)
@@ -242,6 +243,10 @@ def upload_archive(client, mac: str, storage_dir: Path, now: datetime | None = N
         try:
             meta, png = archiv_eintrag(p, art, mac)
             stamm = f"{mac}/{nd:%Y-%m-%d}/{art}-{p.stem}"
+            xml_bytes = meta.pop("_xml", None)
+            if xml_bytes:
+                _upload(client, f"{stamm}.xml", xml_bytes, "application/xml")
+                meta["xml"] = f"{stamm}.xml"
             log_text = meta.pop("_log", None)
             if log_text:
                 _upload(client, f"{stamm}.log", log_text.encode("utf-8"), "text/plain; charset=utf-8")
