@@ -175,7 +175,41 @@ def _cmd_apps(args: dict) -> dict:
     return phone_apps.inventory(serials or None)
 
 
+def _rollout(fn, *args):
+    from apk_rollout import RolloutError
+
+    try:
+        return fn(*args)
+    except RolloutError as e:
+        raise CommandError(str(e)) from e
+
+
+def _cmd_screen(args: dict) -> dict:
+    """Bildschirm eines Handys: ansprechbare Elemente + Screenshot im Bucket apk."""
+    import apk_rollout
+
+    picture = str(args.get("bild", "true")).lower() != "false"
+    return _rollout(lambda: apk_rollout.screen(apk_rollout._single_serial(args), picture))
+
+
 # ── Eingreifende Befehle (brauchen remote_allow_actions) ──────────────
+
+
+def _cmd_apk_fetch(args: dict) -> dict:
+    """Release aus dem Bucket apk holen und prüfen (schreibt nur auf dem Mac)."""
+    import apk_rollout
+
+    return _rollout(apk_rollout.fetch, str(args.get("release") or ""))
+
+
+def _cmd_apk_original(args: dict) -> dict:
+    """Original-Instagram auf GENAU EINEM Handy auf das Release bringen."""
+    import apk_rollout
+
+    return _rollout(
+        lambda: apk_rollout.install_original(apk_rollout._single_serial(args), str(args.get("release") or ""))
+    )
+
 
 
 def _cmd_sync(args: dict) -> dict:
@@ -492,6 +526,7 @@ HANDLERS: dict[str, tuple] = {
     "versions": (_cmd_versions, False),
     "legacy-upload": (_cmd_legacy_upload, False),
     "apps": (_cmd_apps, False),
+    "screen": (_cmd_screen, False),
     "warnings": (_cmd_warnings, False),
     "warning-text": (_cmd_warning_text, False),
     "warning-part": (_cmd_warning_part, False),
@@ -504,6 +539,8 @@ HANDLERS: dict[str, tuple] = {
     "update": (_cmd_update, True),
     "archive-upload": (_cmd_archive_upload, True),
     "archive-cleanup": (_cmd_archive_cleanup, True),
+    "apk-fetch": (_cmd_apk_fetch, True),
+    "apk-original": (_cmd_apk_original, True),
 }
 
 # Befehle, nach denen sich der Prozess selbst beendet — das Ergebnis muss

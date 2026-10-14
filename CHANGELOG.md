@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.0.130 — 2026-10-14
+- **Instagram-Rollout, Teil 1** (`apk_rollout.py`):
+  - `apk-fetch release=<name>`: holt ein Release aus dem privaten Bucket `apk` (in Teilen
+    à 40 MB + `manifest.json`, weil Supabase ~50 MB pro Objekt erlaubt), prüft sha256 je
+    Teil und gesamt, packt APKM/APKS aus nach `apk_stage/<name>/`, liest Version und Signatur
+  - `apk-original serial=<s> release=<name>`: Original-Instagram auf **genau einem** Handy
+    aktualisieren. Erst Update drüber; nur bei `UPDATE_INCOMPATIBLE`/`VERSION_DOWNGRADE`
+    Updates deinstallieren (Samsung) bzw. löschen (sonst) und neu installieren. Danach
+    Kontrolle per `apps`
+  - `screen serial=<s>` (lesend): ansprechbare Bildschirm-Elemente + Screenshot in den Bucket
+- Harte Regel im Code: App-Cloner-Kopien werden nie entfernt; die einzige Entfernen-Stelle
+  ist fest auf `com.instagram.android` verdrahtet
+
 ## v1.0.129 — 2026-10-14
 - **Neuer lesender Befehl `apps`** (`phone_apps.py`): pro Handy Hersteller, Modell, Android,
   Prozessor-Varianten, MIUI + Schalter „Über USB installieren"; pro Instagram-Paket

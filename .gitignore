@@ -34,3 +34,4 @@ sync_test.log
 .DS_Store
 
 archive_state.json
+apk_stage/
