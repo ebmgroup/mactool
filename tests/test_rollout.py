@@ -159,6 +159,7 @@ except apk_rollout.RolloutError:
 
 print("Original installieren")
 STAGE = Path(tempfile.mkdtemp())
+apk_rollout.STAGE_DIR = STAGE
 rel = STAGE / "ig-445"
 rel.mkdir()
 for name in ("base.apk", "split_config.xxhdpi.apk"):
