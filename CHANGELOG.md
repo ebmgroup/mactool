@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.134 — 2026-10-14
+- `phone-apks serial=<s>` (lesend): APK-Dateien in `/sdcard`, neueste zuerst — dort legt der
+  App Cloner die gebauten Kopien ab
+- `clone-install serial=<s> path=<…apk> package=<kopie>`: eine gebaute Kopie per
+  `pm install -r` drüberinstallieren. Nur wenn die Kopie schon installiert ist, nie das
+  Original, nie löschen. Liefert den exakten Android-Fehlercode
+
 ## v1.0.133 — 2026-10-14
 - `phone-log` liest alle logcat-Puffer (`-b all`) statt der letzten 5000 Zeilen von main —
   der Grund einer abgelehnten Installation steht im system-Puffer

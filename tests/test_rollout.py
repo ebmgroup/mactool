@@ -62,6 +62,18 @@ try:
 except apk_rollout.RolloutError:
     check("unbekannte Aktion abgelehnt", True)
 
+for path, pkg, name in (("/data/x.apk", "com.instagram.androie", "Pfad außerhalb /sdcard"),
+                        ("/sdcard/../data/x.apk", "com.instagram.androie", "Pfad mit .."),
+                        ("/sdcard/x.apk", "com.instagram.android", "Original statt Kopie"),
+                        ("/sdcard/x.apk", "com.whatsapp", "fremdes Paket")):
+    try:
+        apk_rollout.clone_install("R58", path, pkg)
+        check(f"clone-install lehnt ab: {name}", False)
+    except apk_rollout.RolloutError:
+        check(f"clone-install lehnt ab: {name}", True)
+check("clone-install ist eingreifend", remote_commands.HANDLERS["clone-install"][1] is True)
+check("phone-apks ist lesend", remote_commands.HANDLERS["phone-apks"][1] is False)
+
 print("Original installieren")
 STAGE = Path(tempfile.mkdtemp())
 apk_rollout.STAGE_DIR = STAGE

@@ -201,7 +201,22 @@ def _cmd_phone_log(args: dict) -> dict:
         apk_rollout._single_serial(args), args.get("grep") or None, args.get("lines") or 200))
 
 
+def _cmd_phone_apks(args: dict) -> dict:
+    """APK-Dateien im Handyspeicher (/sdcard), neueste zuerst."""
+    import apk_rollout
+
+    return _rollout(lambda: apk_rollout.phone_apks(apk_rollout._single_serial(args)))
+
+
 # ── Eingreifende Befehle (brauchen remote_allow_actions) ──────────────
+
+
+def _cmd_clone_install(args: dict) -> dict:
+    """Vom App Cloner gebaute Kopie per Update installieren (nie neu, nie löschen)."""
+    import apk_rollout
+
+    return _rollout(lambda: apk_rollout.clone_install(
+        apk_rollout._single_serial(args), str(args.get("path") or ""), str(args.get("package") or "")))
 
 
 def _cmd_ui(args: dict) -> dict:
@@ -544,6 +559,7 @@ HANDLERS: dict[str, tuple] = {
     "apps": (_cmd_apps, False),
     "screen": (_cmd_screen, False),
     "phone-log": (_cmd_phone_log, False),
+    "phone-apks": (_cmd_phone_apks, False),
     "warnings": (_cmd_warnings, False),
     "warning-text": (_cmd_warning_text, False),
     "warning-part": (_cmd_warning_part, False),
@@ -559,6 +575,7 @@ HANDLERS: dict[str, tuple] = {
     "apk-fetch": (_cmd_apk_fetch, True),
     "apk-original": (_cmd_apk_original, True),
     "ui": (_cmd_ui, True),
+    "clone-install": (_cmd_clone_install, True),
 }
 
 # Befehle, nach denen sich der Prozess selbst beendet — das Ergebnis muss

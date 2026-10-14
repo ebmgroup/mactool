@@ -320,6 +320,58 @@ def phone_log(serial: str, pattern: str | None, lines: int = 200) -> dict:
     return {"serial": serial, "grep": pattern, "lines": hits[-lines:]}
 
 
+# ── Vom App Cloner gebaute Kopien ─────────────────────────────────────
+
+SHARED_ROOT = "/sdcard/"
+_APK_LINE_RE = re.compile(r"^(\d+)\s+(\d+)\s+(/sdcard/.+\.apk)$")
+
+
+def phone_apks(serial: str) -> dict:
+    """APK-Dateien im gemeinsamen Speicher des Handys (dort legt der App Cloner seine ab)."""
+    adb = _adb()
+    out = _shell(adb, serial, f"find {SHARED_ROOT} -iname '*.apk' -type f -exec stat -c '%s %Y %n' {{}} + 2>/dev/null",
+                 timeout=120)
+    files = []
+    for line in out.splitlines():
+        match = _APK_LINE_RE.match(line.strip())
+        if match:
+            files.append({"path": match.group(3), "bytes": int(match.group(1)),
+                          "modified": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(int(match.group(2))))})
+    files.sort(key=lambda f: f["modified"], reverse=True)
+    return {"serial": serial, "files": files}
+
+
+def clone_install(serial: str, path: str, package: str) -> dict:
+    """Eine vom App Cloner gebaute Kopie per Update drüberinstallieren.
+
+    Nur `install -r` — keine Neuinstallation, kein Löschen. Die Kopie muss schon auf
+    dem Handy sein, sonst wird abgebrochen.
+    """
+    from phone_apps import read_phone
+
+    if not path.startswith(SHARED_ROOT) or not path.endswith(".apk") or ".." in path or "'" in path:
+        raise RolloutError(f"Pfad '{path}' nicht erlaubt (nur {SHARED_ROOT}…/x.apk)")
+    if not package.startswith("com.instagram.") or package == ORIGINAL:
+        raise RolloutError("package muss eine Kopie sein (com.instagram.androie …)")
+    adb = _adb()
+    before = read_phone(adb, serial)["packages"].get(package)
+    if before is None:
+        raise RolloutError(f"{package} ist auf {serial} nicht installiert — nur Updates erlaubt")
+
+    out = _shell(adb, serial, "pm", "install", "-r", path, timeout=INSTALL_TIMEOUT)
+    match = _RESULT_RE.search(out)
+    result = match.group(1) if match else out[-300:]
+    after = read_phone(adb, serial)["packages"].get(package)
+    return {
+        "serial": serial,
+        "package": package,
+        "verdict": (f"OK: {package} jetzt {after.get('version_name')}" if result == "Success"
+                    else f"NICHT aktualisiert: {result}"),
+        "before": before,
+        "after": after,
+    }
+
+
 # ── App Cloner bedienen ───────────────────────────────────────────────
 
 APP_CLONER = "com.applisto.appcloner"
