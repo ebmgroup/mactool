@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.0.143 — 2026-10-14
+- **IG-Aufträge bei vielen gleichzeitigen Klicks:**
+  - Reihenfolge je Mac: App vor Phone vor Mac, sonst nach Klickzeit (`scope`-Spalte)
+  - ein laufender Mac-Auftrag erledigt zwischen zwei Phones zuerst die inzwischen
+    angeklickten App-/Phone-Aufträge
+  - der Standard beim **Start** gilt, nicht der beim Klick
+  - Datenbank lässt denselben offenen Auftrag nur einmal zu (Unique-Index); Edge Function
+    legt wartende App-Aufträge in einem neuen Phone-Auftrag desselben Phones zusammen
+    (Status `merged`). Regeln in `supabase/functions/ig-versionen/logic.ts` + Deno-Tests
+
 ## v1.0.142 — 2026-10-14
 - Bildschirm-Abbild auch während der Bot `uiautomator2` hält („UiAutomationService already
   registered“): dann über dessen JSON-RPC-Dienst (Port 9008, `dumpWindowHierarchy`), rein lesend

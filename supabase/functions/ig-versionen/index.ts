@@ -19,6 +19,8 @@
 // Secrets: MAIN_SUPABASE_URL, MAIN_SUPABASE_ANON_KEY (öffentlicher Schlüssel der Haupt-DB).
 // SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY stellt Supabase selbst bereit.
 
+import { findCovering, toMerge } from "./logic.ts";
+
 const URL_SELF = Deno.env.get("SUPABASE_URL")!;
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MAIN_URL = Deno.env.get("MAIN_SUPABASE_URL")!;
@@ -122,16 +124,38 @@ async function requestUpdate(body: any, who: { email: string }) {
   if (pkg && !serial) throw new HttpError(400, "Einzelne App nur zusammen mit einem Handy");
   const [standard] = await db("GET", "ig_versions?select=id&is_standard=is.true&status=eq.ready");
   if (!standard) throw new HttpError(409, "Es ist keine Standard-Version festgelegt");
-  // Gleichen Auftrag nicht doppelt einreihen
-  let dup = `ig_update_jobs?select=id&server_name=eq.${server}&status=in.(queued,running)`;
-  dup += serial ? `&serial=eq.${serial}` : "&serial=is.null";
-  dup += pkg ? `&package=eq.${pkg}` : "&package=is.null";
-  const existing = await db("GET", dup);
-  if (existing.length) return { job: existing[0], duplicate: true };
-  const [job] = await db("POST", "ig_update_jobs", {
-    server_name: server, serial, package: pkg, version_id: standard.id, requested_by: who.email,
-  });
-  return { job };
+
+  // Regeln siehe logic.ts: Zusammenlegen nur innerhalb eines Phones; ein Mac-Auftrag
+  // schluckt nichts, App-/Phone-Auftraege haben Vorrang vor ihm.
+  const open = await db("GET", `ig_update_jobs?select=*&server_name=eq.${server}&status=in.(queued,running)`);
+  const covering = findCovering(open, serial, pkg);
+  if (covering) return { job: covering, duplicate: true };
+
+  let job;
+  try {
+    // version_id = Standard beim Klick, nur zur Info: der Mac nimmt den Standard beim Start
+    [job] = await db("POST", "ig_update_jobs", {
+      server_name: server, serial, package: pkg, version_id: standard.id, requested_by: who.email,
+    });
+  } catch (e) {
+    // Gleichzeitiger Klick: die Datenbank laesst denselben offenen Auftrag nur einmal zu
+    if (e instanceof HttpError && e.message.includes("23505")) {
+      let same = `ig_update_jobs?select=*&server_name=eq.${server}&status=in.(queued,running)`;
+      same += serial ? `&serial=eq.${serial}` : "&serial=is.null";
+      same += pkg ? `&package=eq.${pkg}` : "&package=is.null";
+      const [existing] = await db("GET", same);
+      return { job: existing, duplicate: true };
+    }
+    throw e;
+  }
+
+  // Schmalere wartende Auftraege gehen im neuen auf
+  const narrower = toMerge(open, job);
+  if (narrower.length) {
+    await db("PATCH", `ig_update_jobs?id=in.(${narrower.map((j: any) => j.id).join(",")})&status=eq.queued`,
+      { status: "merged", progress: `übernommen von #${job.id}` }, "return=minimal");
+  }
+  return { job, merged: narrower.map((j: any) => j.id) };
 }
 
 async function cancelJob(body: any) {

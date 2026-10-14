@@ -267,10 +267,17 @@ class FakeDB:
                 return False
             if v == "is.true" and row.get(k) is not True:
                 return False
+            if v.startswith("lte.") and not (row.get(k) is not None and row[k] <= int(v[4:])):
+                return False
         return True
 
     def select(self, table, params):
-        return [dict(r) for r in self.t[table] if self._match(r, params)]
+        rows = [dict(r) for r in self.t[table] if self._match(r, params)]
+        if params.get("order") == "scope.asc,created_at.asc":
+            rows.sort(key=lambda r: (r.get("scope", 0), r.get("created_at", r["id"])))
+        if params.get("limit"):
+            rows = rows[: int(params["limit"])]
+        return rows
 
     def update(self, table, params, values, retries=3):
         hit = [r for r in self.t[table] if self._match(r, params)]
@@ -295,8 +302,8 @@ db = FakeDB()
 db.t["ig_versions"].append({"id": 1, "release": "r1", "version_code": T, "version_name": "445",
                             "status": "ready", "is_standard": True, "sha256": "x"})
 db.t["ig_update_jobs"].append({"id": 7, "server_name": "mac17", "serial": "R58", "package": None,
-                               "version_id": None, "status": "queued"})
-db.t["ig_update_jobs"].append({"id": 8, "server_name": "mac22", "serial": "X", "package": None, "status": "queued"})
+                               "version_id": None, "status": "queued", "scope": 1})
+db.t["ig_update_jobs"].append({"id": 8, "server_name": "mac22", "serial": "X", "package": None, "status": "queued", "scope": 1})
 ig_worker._ensure_release = lambda v: {}
 ig_worker.report_inventory = lambda client, serials=None: 0
 calls.clear()
@@ -308,7 +315,7 @@ row = db.t["ig_update_jobs"][0]
 check("Auftrag done mit Ergebnis je Paket", row["status"] == "done" and "com.instagram.androif" in row["result"]["R58"], row)
 
 print("Auftrag: Abbruch aus dem Dashboard")
-db.t["ig_update_jobs"].append({"id": 9, "server_name": "mac17", "serial": "R58", "package": None, "status": "queued"})
+db.t["ig_update_jobs"].append({"id": 9, "server_name": "mac17", "serial": "R58", "package": None, "status": "queued", "scope": 1})
 ig_worker_phone["com.instagram.android"] = {"version_code": 1}
 job = ig_worker._claim(db)
 db.t["ig_update_jobs"][-1]["status"] = "cancelled"
@@ -316,6 +323,47 @@ calls.clear()
 ig_worker.run_job(db, job)
 check("abgebrochen bleibt abgebrochen, nichts installiert",
       db.t["ig_update_jobs"][-1]["status"] == "cancelled" and calls == [], (db.t["ig_update_jobs"][-1], calls))
+
+print("Reihenfolge: App vor Phone vor Mac, sonst nach Zeit")
+
+
+def jobrow(id, serial, package, created):
+    scope = 2 if serial is None else (1 if package is None else 0)
+    return {"id": id, "server_name": "mac17", "serial": serial, "package": package,
+            "status": "queued", "scope": scope, "created_at": created}
+
+
+db.t["ig_update_jobs"] = [jobrow(30, None, None, 1), jobrow(31, "B", None, 2), jobrow(32, "A", "com.instagram.androif", 3)]
+check("App-Auftrag zuerst, obwohl zuletzt geklickt", ig_worker._claim(db)["id"] == 32)
+check("dann Phone", ig_worker._claim(db)["id"] == 31)
+check("Mac zuletzt", ig_worker._claim(db)["id"] == 30)
+
+print("Mac-Auftrag zieht Einzel-Aufträge zwischen zwei Phones vor")
+order = []
+db.t["ig_update_jobs"] = [jobrow(40, None, None, 1)]
+db.t["ig_versions"][0]["id"] = 2   # Admin hat inzwischen einen neuen Standard gesetzt
+phone_apps._adb_devices = lambda adb: {"P1": "device", "P2": "device"}
+import device_monitor
+device_monitor._find_adb = lambda: "/fake/adb"
+
+
+def fake_update_phone(serial, version, packages, progress, cancelled):
+    order.append((serial, tuple(packages or []), version["id"]))
+    if serial == "P1" and not packages:
+        # Während P1 läuft, klickt jemand eine App auf P2 an
+        db.t["ig_update_jobs"].append(jobrow(41, "P2", "com.instagram.androie", 2))
+    return {"x": "aktualisiert"}
+
+
+ig_worker.update_phone = fake_update_phone
+mac_job = ig_worker._claim(db)
+ig_worker.run_job(db, mac_job)
+check("P1, dann vorgezogene App auf P2, dann P2", [o[:2] for o in order] ==
+      [("P1", ()), ("P2", ("com.instagram.androie",)), ("P2", ())], order)
+check("Standard beim Start, nicht beim Klick", {o[2] for o in order} == {2}
+      and db.t["ig_update_jobs"][0]["version_id"] == 2, (order, db.t["ig_update_jobs"][0]))
+check("beide Aufträge fertig", [j["status"] for j in db.t["ig_update_jobs"]] == ["done", "done"],
+      db.t["ig_update_jobs"])
 
 print("Neustart: verwaiste laufende Aufträge werden wieder eingereiht")
 db.t["ig_update_jobs"] = [

@@ -105,11 +105,16 @@ def _recover_orphans(client: SupabaseRest) -> int:
     return len(rows)
 
 
-def _claim(client: SupabaseRest) -> dict | None:
+def _claim(client: SupabaseRest, max_scope: int = 2) -> dict | None:
+    """Nächsten Auftrag reservieren: schmale zuerst (App, dann Phone, dann Mac), sonst nach Zeit.
+
+    max_scope=1 holt nur App-/Phone-Aufträge — so arbeitet ein laufender Mac-Auftrag
+    zwischendurch ab, was Mitarbeiter einzeln angeklickt haben.
+    """
     server = get_config().server_name
     rows = client.select("ig_update_jobs", {
         "select": "*", "server_name": f"eq.{server}", "status": "eq.queued",
-        "order": "created_at.asc", "limit": "1",
+        "scope": f"lte.{max_scope}", "order": "scope.asc,created_at.asc", "limit": "1",
     })
     if not rows:
         return None
@@ -220,7 +225,11 @@ def run_job(client: SupabaseRest, job: dict) -> None:
         return _cancelled(client, job_id)
 
     try:
-        version = _version(client, job.get("version_id"))
+        # Der Standard beim START zählt, nicht der beim Klick: hat ein Admin inzwischen
+        # umgestellt, soll kein wartender Auftrag noch die alte Version ausrollen.
+        version = _version(client, None)
+        if version["id"] != job.get("version_id"):
+            _patch(client, job_id, {"version_id": version["id"]})
         progress(f"Version {version['version_name']} holen")
         _ensure_release(version)
 
@@ -235,6 +244,12 @@ def run_job(client: SupabaseRest, job: dict) -> None:
         for index, serial in enumerate(serials, 1):
             if cancelled():
                 break
+            if not job.get("serial"):
+                # Ganzer Mac: erst erledigen, was inzwischen einzeln angeklickt wurde
+                while (narrow := _claim(client, max_scope=1)):
+                    logger.info(f"IG-Auftrag #{narrow['id']} vorgezogen (Mac-Auftrag #{job_id} pausiert)")
+                    progress(f"pausiert für Einzel-Auftrag #{narrow['id']}")
+                    run_job(client, narrow)
             prefix = f"Handy {index}/{len(serials)} ({serial})" if len(serials) > 1 else serial
 
             def phone_progress(text, prefix=prefix):

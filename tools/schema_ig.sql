@@ -52,7 +52,7 @@ create table if not exists public.ig_update_jobs (
   serial        text,
   package       text,
   version_id    bigint      references public.ig_versions(id),
-  status        text        not null default 'queued',  -- queued | running | done | error | cancelled
+  status        text        not null default 'queued',  -- queued | running | done | error | cancelled | merged
   requested_by  text,
   created_at    timestamptz not null default now(),
   started_at    timestamptz,
@@ -63,6 +63,15 @@ create table if not exists public.ig_update_jobs (
 );
 create index if not exists ig_update_jobs_pending_idx
   on public.ig_update_jobs (server_name, status, created_at);
+
+-- Reichweite: 0 = eine App, 1 = ein Handy, 2 = ganzer Mac. Schmale Auftraege zuerst.
+alter table public.ig_update_jobs add column if not exists scope smallint
+  generated always as (case when serial is null then 2 when package is null then 1 else 0 end) stored;
+
+-- Derselbe Auftrag kann nur einmal offen sein — auch bei gleichzeitigen Klicks
+create unique index if not exists ig_update_jobs_one_open
+  on public.ig_update_jobs (server_name, coalesce(serial, ''), coalesce(package, ''))
+  where status in ('queued', 'running');
 
 -- ── Zeitstempel aus der Datenbank ─────────────────────────────────────
 create or replace function public.ig_stamp_phone() returns trigger language plpgsql as $$
@@ -79,7 +88,7 @@ begin
   if new.status = 'running' and (tg_op = 'INSERT' or old.status <> 'running') then
     new.started_at := now();
   end if;
-  if new.status in ('done', 'error', 'cancelled') and (tg_op = 'INSERT' or old.status not in ('done', 'error', 'cancelled')) then
+  if new.status in ('done', 'error', 'cancelled', 'merged') and (tg_op = 'INSERT' or old.status not in ('done', 'error', 'cancelled', 'merged')) then
     new.finished_at := now();
   end if;
   return new;
