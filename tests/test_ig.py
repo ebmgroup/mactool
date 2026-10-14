@@ -354,32 +354,114 @@ check("App-Auftrag zuerst, obwohl zuletzt geklickt", ig_worker._claim(db)["id"] 
 check("dann Phone", ig_worker._claim(db)["id"] == 31)
 check("Mac zuletzt", ig_worker._claim(db)["id"] == 30)
 
-print("Mac-Auftrag zieht Einzel-Aufträge zwischen zwei Phones vor")
-order = []
-db.t["ig_update_jobs"] = [jobrow(40, None, None, 1)]
-db.t["ig_versions"][0]["id"] = 2   # Admin hat inzwischen einen neuen Standard gesetzt
-phone_apps._adb_devices = lambda adb: {"P1": "device", "P2": "device"}
+print("Mac updaten: Bot aus, bis zu 5 Phones parallel, Bot wieder an")
+import tempfile, threading as th, time as realtime
+import bot_manager
 import device_monitor
 device_monitor._find_adb = lambda: "/fake/adb"
+ig_worker.PAUSE_FILE = Path(tempfile.mkdtemp()) / "ig_bot_pause.json"
+bot = {"running": True, "stops": 0, "starts": 0, "start_ok": True}
+bot_manager.is_bot_running = lambda: bot["running"]
+def _stop():
+    bot["stops"] += 1; bot["running"] = False; return True
+def _start_bot():
+    bot["starts"] += 1
+    if bot["start_ok"]:
+        bot["running"] = True
+    return bot["start_ok"]
+bot_manager.stop_bot = _stop
+bot_manager.start_bot = _start_bot
+
+active = {"now": 0, "max": 0, "per_serial": {}, "overlap": False, "bot_during": set()}
+alock = th.Lock()
 
 
 def fake_update_phone(serial, version, packages, progress, cancelled):
-    order.append((serial, tuple(packages or []), version["id"]))
-    if serial == "P1" and not packages:
-        # Während P1 läuft, klickt jemand eine App auf P2 an
-        db.t["ig_update_jobs"].append(jobrow(41, "P2", "com.instagram.androie", 2))
+    with alock:
+        active["now"] += 1
+        active["max"] = max(active["max"], active["now"])
+        if active["per_serial"].get(serial):
+            active["overlap"] = True
+        active["per_serial"][serial] = True
+        active["bot_during"].add(bot["running"])
+        active.setdefault("versions", set()).add(version["id"])
+    th.Event().wait(0.05)  # time.sleep ist oben fuer den Test abgeschaltet
+    with alock:
+        active["now"] -= 1
+        active["per_serial"][serial] = False
     return {"x": "aktualisiert"}
 
 
 ig_worker.update_phone = fake_update_phone
-mac_job = ig_worker._claim(db)
-ig_worker.run_job(db, mac_job)
-check("P1, dann vorgezogene App auf P2, dann P2", [o[:2] for o in order] ==
-      [("P1", ()), ("P2", ("com.instagram.androie",)), ("P2", ())], order)
-check("Standard beim Start, nicht beim Klick", {o[2] for o in order} == {2}
-      and db.t["ig_update_jobs"][0]["version_id"] == 2, (order, db.t["ig_update_jobs"][0]))
-check("beide Aufträge fertig", [j["status"] for j in db.t["ig_update_jobs"]] == ["done", "done"],
-      db.t["ig_update_jobs"])
+phones12 = {f"P{i:02d}": "device" for i in range(12)}
+phones12["UNAUTH"] = "unauthorized"
+phone_apps._adb_devices = lambda adb: phones12
+db.t["ig_versions"][0]["id"] = 2   # Admin hat inzwischen einen neuen Standard gesetzt
+db.t["ig_update_jobs"] = [jobrow(40, None, None, 1)]
+ig_worker.run_job(db, ig_worker._claim(db))
+row = db.t["ig_update_jobs"][0]
+check("alle 12 verbundenen Phones bearbeitet, nicht freigegebene ausgelassen",
+      row["status"] == "done" and sorted(row["result"]) == sorted(k for k in phones12 if k != "UNAUTH"), row)
+check("mehrere gleichzeitig, aber höchstens 5", 1 < active["max"] <= 5, active["max"])
+check("Bot während des Updates aus", active["bot_during"] == {False}, active["bot_during"])
+check("Bot danach wieder an, Merkdatei weg",
+      bot["running"] and bot["stops"] == 1 and bot["starts"] == 1 and not ig_worker.PAUSE_FILE.exists(), bot)
+check("Standard beim Start, nicht beim Klick", active["versions"] == {2} and row["version_id"] == 2, (active, row))
+
+print("Mac updaten bei absichtlich gestopptem Bot: bleibt aus")
+bot.update(running=False, stops=0, starts=0)
+db.t["ig_update_jobs"] = [jobrow(41, None, None, 1)]
+ig_worker.run_job(db, ig_worker._claim(db))
+check("kein Stopp, kein Start", bot["stops"] == 0 and bot["starts"] == 0 and not bot["running"], bot)
+
+print("Bot startet nach dem Update nicht -> nächster Durchlauf versucht es erneut")
+bot.update(running=True, stops=0, starts=0, start_ok=False)
+db.t["ig_update_jobs"] = [jobrow(42, None, None, 1)]
+ig_worker.run_job(db, ig_worker._claim(db))
+check("Merkdatei bleibt liegen", ig_worker.PAUSE_FILE.exists() and not bot["running"], bot)
+bot["start_ok"] = True
+ig_worker._recovered = True
+ig_worker._last_inventory = realtime.time()
+ig_worker._client = lambda: db
+ig_worker.run_ig_worker_job()
+check("Worker startet den Bot nach, sobald kein Mac-Auftrag mehr offen ist",
+      bot["running"] and not ig_worker.PAUSE_FILE.exists(), bot)
+
+print("Einzelne App / Phone: Bot bleibt an")
+bot.update(running=True, stops=0, starts=0)
+db.t["ig_update_jobs"] = [jobrow(43, "P01", None, 1)]
+ig_worker.run_job(db, ig_worker._claim(db))
+check("kein Bot-Stopp bei Phone-Klick", bot["stops"] == 0 and active["bot_during"] >= {True}, bot)
+
+print("Zwei Aufträge auf demselben Phone laufen nie gleichzeitig")
+active.update(overlap=False, per_serial={})
+db.t["ig_update_jobs"] = [jobrow(50, "P01", "com.instagram.androie", 1), jobrow(51, "P01", "com.instagram.androif", 2)]
+j1, j2 = ig_worker._claim(db), ig_worker._claim(db)
+threads = [th.Thread(target=ig_worker.run_job, args=(db, j)) for j in (j1, j2)]
+[x.start() for x in threads]; [x.join() for x in threads]
+check("nacheinander auf P01", not active["overlap"] and all(r["status"] == "done" for r in db.t["ig_update_jobs"]),
+      (active, db.t["ig_update_jobs"]))
+
+print("Verteiler: bis zur Grenze annehmen, höchstens ein Mac-Auftrag")
+started_ids = []
+real_start = ig_worker._start
+ig_worker._start = lambda job: (ig_worker._active.__setitem__(job["id"], job["scope"]), started_ids.append(job["id"]))
+ig_worker._active.clear()
+db.t["ig_update_jobs"] = [jobrow(60 + i, f"S{i}", None, i) for i in range(7)] + [jobrow(70, None, None, 0), jobrow(71, None, None, 1)]
+ig_worker.dispatch(db)
+check("5 Phone-Aufträge + 1 Mac-Auftrag angenommen, Rest wartet",
+      sorted(started_ids) == [60, 61, 62, 63, 64, 70], started_ids)
+ig_worker._start = real_start
+ig_worker._active.clear()
+
+print("Einstellung aus der Ferne nur 1–10")
+import remote_commands
+for bad in (0, 11):
+    try:
+        remote_commands._validate("ig_parallel_phones", bad)
+        check(f"ig_parallel_phones={bad} abgelehnt", False)
+    except remote_commands.CommandError:
+        check(f"ig_parallel_phones={bad} abgelehnt", True)
 
 print("Neustart: verwaiste laufende Aufträge werden wieder eingereiht")
 db.t["ig_update_jobs"] = [

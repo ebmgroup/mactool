@@ -309,6 +309,9 @@ def _validate(name: str, value):
     if name == "alert_smtp_port" and not 1 <= value <= 65535:
         raise CommandError("alert_smtp_port muss zwischen 1 und 65535 liegen")
 
+    if name == "ig_parallel_phones" and not 1 <= value <= 10:
+        raise CommandError("ig_parallel_phones muss zwischen 1 und 10 liegen")
+
 
 def _cmd_set(args: dict) -> dict:
     """Konfigurationsfelder aus der Ferne setzen.

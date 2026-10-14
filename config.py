@@ -116,6 +116,9 @@ class AppConfig:
     # IG Versionen: Bestand der Handys melden + Update-Aufträge aus dem Dashboard
     # abarbeiten (ig_worker.py). Ab Werk an — sonst müsste jeder Mac angefasst werden.
     ig_worker_enabled: bool = True
+    # Wie viele Phones ein Mac gleichzeitig aktualisiert (alle IG-Aufträge zusammen).
+    # Aus der Ferne: macctl.py mac04 set ig_parallel_phones=3
+    ig_parallel_phones: int = 5
     remote_commands_table: str = "mac_commands"
     remote_agents_table: str = "mac_agents"
 

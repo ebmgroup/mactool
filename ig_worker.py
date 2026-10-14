@@ -11,11 +11,16 @@ Tabellen (tools/schema_ig.sql, Kontroll-Supabase):
 
 Ablauf je Handy: warten, bis der Bot Instagram nicht im Vordergrund hat; Original auf
 die Version heben (der App Cloner klont aus dem Original); dann jede Kopie per
-App Cloner. Handy für Handy, nie parallel. Kopien werden nie gelöscht.
+App Cloner. Bis zu `ig_parallel_phones` Phones gleichzeitig, nie zweimal dasselbe.
+"Mac updaten" stoppt den Bot und startet ihn danach wieder. Kopien werden nie gelöscht.
 """
 
+import json
 import logging
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 from config import get_config
 from supabase_rest import SupabaseRest
@@ -216,11 +221,114 @@ def update_phone(serial: str, version: dict, packages: list[str] | None, progres
     return results
 
 
+# ── Parallelbetrieb ───────────────────────────────────────────────────
+#
+# Der Scheduler-Job (jede Minute) ist nur der Verteiler: er nimmt Aufträge an und startet
+# sie in eigenen Threads. Grenzen je Mac:
+#   - höchstens `ig_parallel_phones` Phones gleichzeitig (Semaphore, alle Aufträge zusammen)
+#   - nie zwei Aufträge auf demselben Phone (Lock je Seriennummer)
+#   - höchstens ein Mac-Auftrag gleichzeitig
+# "Mac updaten" stoppt den Bot für die Dauer (Andreas, 14.10.); App-/Phone-Klicks nicht —
+# da kümmert sich der Mitarbeiter.
+
+_lock = threading.Lock()
+_slots: threading.BoundedSemaphore | None = None
+_slot_count = 0
+_phone_locks: dict[str, threading.Lock] = {}
+_active: dict[int, int] = {}          # job_id -> scope
+_release_lock = threading.Lock()
+
+PAUSE_FILE = Path(__file__).parent / "ig_bot_pause.json"
+
+
+def _parallel() -> int:
+    return max(1, min(10, int(getattr(get_config(), "ig_parallel_phones", 5) or 5)))
+
+
+def _phone_slot():
+    """Semaphore für alle Phone-Arbeiten dieses Macs (Größe folgt der Einstellung)."""
+    global _slots, _slot_count
+    with _lock:
+        if _slots is None or (_slot_count != _parallel() and not _active):
+            _slot_count = _parallel()
+            _slots = threading.BoundedSemaphore(_slot_count)
+        return _slots
+
+
+def _phone_lock(serial: str) -> threading.Lock:
+    with _lock:
+        return _phone_locks.setdefault(serial, threading.Lock())
+
+
+def _run_phone(client, job_id, serial, version, packages, progress, cancelled) -> dict:
+    """Ein Phone unter den Parallel-Grenzen bearbeiten, danach Bestand melden."""
+    slot = _phone_slot()
+    progress("wartet auf freien Platz")
+    with slot, _phone_lock(serial):
+        if cancelled():
+            return {"abgebrochen": "vor dem Start"}
+        try:
+            result = update_phone(serial, version, packages, progress, cancelled)
+        except Exception as e:
+            result = {"fehler": f"{type(e).__name__}: {e}"[:MAX_TEXT]}
+        try:
+            report_inventory(client, [serial])
+        except Exception as e:
+            logger.warning(f"Bestand {serial} nicht gemeldet: {e}")
+        return result
+
+
+# ── Bot-Pause für "Mac updaten" ───────────────────────────────────────
+
+
+def _pause_bot(job_id: int) -> bool:
+    """Bot stoppen und merken, ob er vorher lief — nur dann wird er danach wieder gestartet."""
+    import bot_manager
+
+    was_running = bot_manager.is_bot_running()
+    PAUSE_FILE.write_text(json.dumps({"job": job_id, "was_running": was_running, "since": time.time()}))
+    if was_running:
+        logger.info(f"IG-Auftrag #{job_id}: Bot wird für das Mac-Update gestoppt")
+        bot_manager.stop_bot()
+    return was_running
+
+
+def _resume_bot() -> bool:
+    """Bot wieder starten, falls WIR ihn gestoppt haben. Idempotent."""
+    import bot_manager
+
+    if not PAUSE_FILE.exists():
+        return False
+    try:
+        was_running = json.loads(PAUSE_FILE.read_text()).get("was_running", True)
+    except Exception:
+        was_running = True   # im Zweifel lieber wieder starten
+    if was_running:
+        logger.info("IG: Bot nach dem Mac-Update wieder starten")
+        if not bot_manager.start_bot():
+            # Datei bleibt liegen -> nächster Durchlauf versucht es erneut
+            logger.error("IG: Bot ließ sich nicht starten — neuer Versuch in einer Minute")
+            return False
+    PAUSE_FILE.unlink(missing_ok=True)
+    return True
+
+
+def bot_paused_since() -> float | None:
+    try:
+        return json.loads(PAUSE_FILE.read_text()).get("since")
+    except Exception:
+        return None
+
+
+# ── Auftrag ───────────────────────────────────────────────────────────
+
+
 def run_job(client: SupabaseRest, job: dict) -> None:
     import phone_apps
     from device_monitor import _find_adb
 
     job_id = job["id"]
+    whole_mac = not job.get("serial")
 
     def progress(text: str):
         _patch(client, job_id, {"progress": text[:MAX_TEXT]})
@@ -235,57 +343,97 @@ def run_job(client: SupabaseRest, job: dict) -> None:
         if version["id"] != job.get("version_id"):
             _patch(client, job_id, {"version_id": version["id"]})
         progress(f"Version {version['version_name']} holen")
-        _ensure_release(version)
+        with _release_lock:
+            _ensure_release(version)
 
-        if job.get("serial"):
-            serials = [job["serial"]]
+        packages = [job["package"]] if job.get("package") else None
+        if not whole_mac:
+            results = {job["serial"]: _run_phone(client, job_id, job["serial"], version, packages,
+                                                 progress, cancelled)}
         else:
             states = phone_apps._adb_devices(_find_adb())
             serials = sorted(s for s, state in states.items() if state == "device")
-        packages = [job["package"]] if job.get("package") else None
-
-        results, errors = {}, 0
-        for index, serial in enumerate(serials, 1):
-            if cancelled():
-                break
-            if not job.get("serial"):
-                # Ganzer Mac: erst erledigen, was inzwischen einzeln angeklickt wurde
-                while (narrow := _claim(client, max_scope=1)):
-                    logger.info(f"IG-Auftrag #{narrow['id']} vorgezogen (Mac-Auftrag #{job_id} pausiert)")
-                    progress(f"pausiert für Einzel-Auftrag #{narrow['id']}")
-                    run_job(client, narrow)
-            prefix = f"Handy {index}/{len(serials)} ({serial})" if len(serials) > 1 else serial
-
-            def phone_progress(text, prefix=prefix):
-                progress(f"{prefix}: {text}")
-
+            _pause_bot(job_id)
+            done = []
             try:
-                results[serial] = update_phone(serial, version, packages, phone_progress, cancelled)
-            except Exception as e:
-                results[serial] = {"fehler": f"{type(e).__name__}: {e}"[:MAX_TEXT]}
-            if any(str(v).startswith("Fehler") for v in results[serial].values()) or "fehler" in results[serial]:
-                errors += 1
-            try:
-                report_inventory(client, [serial])
-            except Exception as e:
-                logger.warning(f"Bestand {serial} nicht gemeldet: {e}")
+                def one(serial):
+                    def phone_progress(text):
+                        progress(f"Bot pausiert · {len(done)}/{len(serials)} Phones fertig · {serial}: {text}")
+                    result = _run_phone(client, job_id, serial, version, None, phone_progress, cancelled)
+                    done.append(serial)
+                    return serial, result
 
+                with ThreadPoolExecutor(max_workers=_parallel()) as pool:
+                    results = dict(pool.map(one, serials))
+            finally:
+                _resume_bot()
+
+        errors = sum(1 for r in results.values()
+                     if "fehler" in r or any(str(v).startswith("Fehler") for v in r.values()))
         if cancelled():
             _patch(client, job_id, {"result": results, "progress": "abgebrochen"})
             return
         _patch(client, job_id, {
             "status": "error" if errors else "done",
             "result": results,
-            "progress": f"{len(serials) - errors} von {len(serials)} Handys ohne Fehler",
-            "error": f"{errors} Handy(s) mit Fehler" if errors else None,
+            "progress": f"{len(results) - errors} von {len(results)} Phones ohne Fehler"
+                        + (" · Bot wieder gestartet" if whole_mac else ""),
+            "error": f"{errors} Phone(s) mit Fehler" if errors else None,
         })
     except Exception as e:
         logger.exception(f"IG-Auftrag #{job_id} gescheitert")
         _patch(client, job_id, {"status": "error", "error": f"{type(e).__name__}: {e}"[:MAX_TEXT]})
+    finally:
+        with _lock:
+            _active.pop(job_id, None)
+
+
+def _start(job: dict) -> None:
+    """Auftrag im eigenen Thread mit eigenem Client starten."""
+    with _lock:
+        _active[job["id"]] = job.get("scope", 2 if not job.get("serial") else 1)
+    logger.info(f"IG-Auftrag #{job['id']}: {job.get('serial') or 'ganzer Mac'} / {job.get('package') or 'alle'}")
+    threading.Thread(target=run_job, args=(_client(), job), name=f"ig-job-{job['id']}", daemon=True).start()
+
+
+def dispatch(client: SupabaseRest) -> list[int]:
+    """So viele wartende Aufträge annehmen, wie Platz ist. Liefert die gestarteten IDs.
+
+    Einzel-Aufträge (App/Phone) bis zur Parallelgrenze, Mac-Aufträge höchstens einer.
+    Schmale zuerst (_claim sortiert nach scope). Alle teilen sich die Phone-Plätze.
+    """
+    started = []
+    while True:
+        with _lock:
+            singles = sum(1 for scope in _active.values() if scope < 2)
+            mac_running = any(scope == 2 for scope in _active.values())
+        if singles < _parallel():
+            job = _claim(client, max_scope=1 if mac_running else 2)
+        elif not mac_running:
+            job = _claim_scope(client, 2)
+        else:
+            job = None
+        if not job:
+            return started
+        _start(job)
+        started.append(job["id"])
+
+
+def _claim_scope(client: SupabaseRest, scope: int) -> dict | None:
+    server = get_config().server_name
+    rows = client.select("ig_update_jobs", {
+        "select": "*", "server_name": f"eq.{server}", "status": "eq.queued",
+        "scope": f"eq.{scope}", "order": "created_at.asc", "limit": "1",
+    })
+    if not rows:
+        return None
+    won = client.update("ig_update_jobs", {"id": f"eq.{rows[0]['id']}", "status": "eq.queued"},
+                        {"status": "running", "progress": "gestartet"}, retries=1)
+    return won[0] if won else None
 
 
 def run_ig_worker_job() -> dict:
-    """Scheduler-Einstieg: ggf. Bestand melden, dann höchstens einen Auftrag abarbeiten."""
+    """Scheduler-Einstieg (jede Minute): aufräumen, ggf. Bestand melden, Aufträge verteilen."""
     global _last_inventory, _recovered
     client = _client()
     if client is None:
@@ -295,14 +443,23 @@ def run_ig_worker_job() -> dict:
         if not _recovered:
             done["recovered"] = _recover_orphans(client)
             _recovered = True
-        if time.time() - _last_inventory > INVENTORY_MINUTES * 60:
+        with _lock:
+            mac_running = any(scope == 2 for scope in _active.values())
+            idle = not _active
+        # Bot noch von uns gestoppt, aber kein Mac-Auftrag mehr aktiv (Absturz, Neustart,
+        # Abbruch)? Dann wieder starten — der Bot darf nie liegen bleiben.
+        if PAUSE_FILE.exists() and not mac_running:
+            server = get_config().server_name
+            open_mac = client.select("ig_update_jobs", {
+                "select": "id", "server_name": f"eq.{server}", "status": "in.(queued,running)",
+                "scope": "eq.2", "limit": "1",
+            })
+            if not open_mac:
+                done["bot_resumed"] = _resume_bot()
+        if idle and time.time() - _last_inventory > INVENTORY_MINUTES * 60:
             done["inventory"] = report_inventory(client)
             _last_inventory = time.time()
-        job = _claim(client)
-        if job:
-            logger.info(f"IG-Auftrag #{job['id']}: {job.get('serial') or 'ganzer Mac'} / {job.get('package') or 'alle'}")
-            run_job(client, job)
-            done["job"] = job["id"]
+        done["started"] = dispatch(client)
     except Exception as e:
         logger.warning(f"IG-Worker: {e}")
         done["error"] = str(e)

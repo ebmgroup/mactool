@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.0.145 — 2026-10-14
+- **IG parallel:** bis zu `ig_parallel_phones` (Standard 5, 1–10, per `set` änderbar) Phones je
+  Mac gleichzeitig — über alle Aufträge zusammen; nie zwei Aufträge auf demselben Phone.
+  Der Worker ist jetzt Verteiler (Aufträge laufen in eigenen Threads), Bestand und Fernbefehle
+  bleiben dabei ansprechbar
+- **„Mac updaten“ stoppt den Bot** für die Dauer und startet ihn danach wieder — nur wenn er
+  vorher lief. Merkdatei `ig_bot_pause.json`: startet der Bot nicht, oder endet der Auftrag
+  durch Absturz/Neustart/Abbruch, holt der Worker den Start in jeder Minute nach.
+  App-/Phone-Klicks stoppen den Bot nicht (da kümmert sich der Mitarbeiter)
+- Das Vorziehen von Einzel-Aufträgen im Mac-Auftrag entfällt (sie laufen jetzt parallel)
+
 ## v1.0.144 — 2026-10-14
 - **IG: Versionsname statt versionCode vergleichen.** Den Code einer Kopie setzt der App Cloner
   selbst, je nach seiner Version anders (2.7.1: 445.0.0.45.83 mit 370711583, Original 385111388).
