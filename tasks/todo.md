@@ -26,6 +26,23 @@ je Mac (alles). Updates darf jeder MA ausloesen. Ausfuehrung ueber das MacTool.
 - [ ] Login-Check: Clone mit aktivem Bot-Account updaten, naechsten Bot-Lauf pruefen
 - [ ] Beta -> main (Review durch zweiten Kollegen)
 
+
+## Review (14.10.2026, Abend)
+Geliefert: Dashboard /growth/ig-versionen (Beta v2.47.4, PRs #86–#92), Edge Function
+`ig-versionen` (Kontroll-Projekt), MacTool v1.0.138–v1.0.144 auf allen 13 Macs.
+Belegt: Auftrag #4 hat auf mac17/428 Clone #7 vollautomatisch aktualisiert (Daten erhalten).
+Unterwegs gefunden + behoben: Bundles statt Voll-APK (MISSING_SPLIT), App Cloner merkt sich
+den Reiter, Bot haelt UiAutomation (Abbild ueber uiautomator2 :9008), alte Dumpdatei gelesen,
+versionCode der Clones nicht vergleichbar (Versionsname), Original neuer als Standard,
+gleichzeitige Klicks (Vorrang, Zusammenlegen, Unique-Index), CI-Test ohne .env.
+Offen:
+- [ ] Login-Check an einem Clone mit Bot-Account (Vorschlag: 428 Clone 4, asmuchaswatermelon)
+- [ ] App Cloner 2.7.1 (78 Phones) — Test auf einem Phone mit unbenutztem Clone
+- [ ] Dashboard prod: PR beta -> main, Review zweiter Kollege
+- [ ] 428: /sdcard/Download/Instagram-445.0.0.45.83.apk (kaputter Bundle-Klon) aufraeumen
+- [ ] mac04: 4 Phones "unauthorized" (Box01 Phone 01/15/19, RF8M20TZ0QF) — vor Ort freigeben
+- [ ] test_parity.py / test_flow.py (Kunden-Statistik) waren schon vorher rot — untersuchen
+
 ---
 
 # Instagram-Rollout auf die Handys — Plan (ab v1.0.129)
