@@ -108,9 +108,9 @@ class Phone:
             if hit and hit.get("id") == PI + "button1" and self.current() is ASK_UPDATE:
                 self.versions.update(self.after_install)
             self.advance()
-        elif "dumpsys package" in line and "versionCode" in line:
+        elif "dumpsys package" in line and "versionName" in line:
             pkg = line.split()[2]
-            return f"versionCode={self.versions[pkg]} minSdk=28" if pkg in self.versions else ""
+            return f"    versionName={self.versions[pkg]}" if pkg in self.versions else ""
         elif "topResumedActivity" in line:
             return "topResumedActivity=ActivityRecord{a u0 com.sec.android.app.launcher/.Launcher t1}"
         return ""
@@ -138,12 +138,13 @@ check("UPDATE ALL wird nie gewählt", c.find_update_button(1)["bounds"] == "[569
 check("Kopie ohne Update-Angebot -> None", c.find_update_button(7) is None)
 
 print("Normalablauf")
-T = 385111388
+T = "445.0.0.45.83"
+OLD = "410.1.0.63.71"
 phone = Phone([MAIN, CLONED, DIALOG, CLONING, CLONED_OK, ASK_UPDATE, INSTALLING],
-              {"com.instagram.androih": 381607172}, after_install={"com.instagram.androih": T})
+              {"com.instagram.androih": OLD}, after_install={"com.instagram.androih": T})
 install(phone)
 out = app_cloner.Cloner("R58").update_clone("com.instagram.androih", T)
-check("Kopie #4 aktualisiert", out["result"] == "aktualisiert" and out["version_code"] == T, out)
+check("Kopie #4 aktualisiert", out["result"] == "aktualisiert" and out["version"] == T, out)
 check("Tipp-Folge wie von Hand",
       phone.taps == ["CLONED APPS    ", "UPDATE", "UPDATE", "INSTALL APP", "Update"], phone.taps)
 check("Installer vorher und nachher beendet (Geister-Fenster)",
@@ -153,7 +154,7 @@ check("App Cloner nie gelöscht/aktualisiert",
 
 print("App Cloner öffnet direkt im Reiter CLONED APPS (merkt sich den letzten)")
 phone = Phone([CLONED, DIALOG, CLONED_OK, ASK_UPDATE, INSTALLING],
-              {"com.instagram.androih": 1}, after_install={"com.instagram.androih": T})
+              {"com.instagram.androih": OLD}, after_install={"com.instagram.androih": T})
 install(phone)
 out = app_cloner.Cloner("R58").update_clone("com.instagram.androih", T)
 check("ohne Reiter-Tipp weiter", out["result"] == "aktualisiert" and phone.taps[0] == "UPDATE", phone.taps)
@@ -165,7 +166,7 @@ check("nichts getippt", app_cloner.Cloner("R58").update_clone("com.instagram.and
       and phone.taps == [])
 
 print("Android will NEU installieren -> Abbruch")
-phone = Phone([MAIN, CLONED, DIALOG, CLONED_OK, ASK_NEW, ASK_NEW], {"com.instagram.androih": 1})
+phone = Phone([MAIN, CLONED, DIALOG, CLONED_OK, ASK_NEW, ASK_NEW], {"com.instagram.androih": OLD})
 install(phone)
 try:
     app_cloner.Cloner("R58").update_clone("com.instagram.androih", T)
@@ -174,7 +175,7 @@ except apk_rollout.RolloutError as e:
     check("Neuinstallation abgebrochen", "NEU" in str(e) and "Install" not in phone.taps and "Cancel" in phone.taps, (e, phone.taps))
 
 print("Android lehnt ab -> Meldung")
-phone = Phone([MAIN, CLONED, DIALOG, CLONED_OK, ASK_UPDATE, FAILED, FAILED], {"com.instagram.androih": 1})
+phone = Phone([MAIN, CLONED, DIALOG, CLONED_OK, ASK_UPDATE, FAILED, FAILED], {"com.instagram.androih": OLD})
 install(phone)
 try:
     app_cloner.Cloner("R58").update_clone("com.instagram.androih", T)
@@ -186,7 +187,7 @@ print("Safe update angehakt -> wird ausgeschaltet")
 dialog_checked = [dict(e) for e in DIALOG]
 dialog_checked[1]["checked"] = True
 phone = Phone([MAIN, CLONED, dialog_checked, DIALOG, CLONED_OK, ASK_UPDATE, INSTALLING],
-              {"com.instagram.androih": 1}, after_install={"com.instagram.androih": T})
+              {"com.instagram.androih": OLD}, after_install={"com.instagram.androih": T})
 install(phone)
 app_cloner.Cloner("R58").update_clone("com.instagram.androih", T)
 check("Safe update vor dem Bestätigen abgewählt", phone.taps[2] == "Safe update", phone.taps)
@@ -195,8 +196,8 @@ check("Safe update vor dem Bestätigen abgewählt", phone.taps[2] == "Safe updat
 
 print("Handy: Original zuerst, dann nur veraltete Kopien")
 calls = []
-ig_worker_phone = {"com.instagram.android": {"version_code": 1}, "com.instagram.androie": {"version_code": T},
-                   "com.instagram.androif": {"version_code": 1}, "com.applisto.appcloner": {"version_code": 9}}
+ig_worker_phone = {"com.instagram.android": {"version_name": OLD}, "com.instagram.androie": {"version_name": T},
+                   "com.instagram.androif": {"version_name": OLD}, "com.applisto.appcloner": {"version_name": "1.5.32"}}
 phone_apps.read_phone = lambda adb, serial: {"packages": ig_worker_phone}
 apk_rollout.install_original = lambda serial, release: calls.append(("original", serial)) or {"verdict": "OK: Original jetzt 445"}
 
@@ -214,26 +215,39 @@ class FakeCloner:
 
 
 app_cloner.Cloner = FakeCloner
-version = {"version_code": T, "release": "r1", "version_name": "445"}
+version = {"version_code": 385111388, "release": "r1", "version_name": T}
 res = ig_worker.update_phone("R58", version, None, lambda t: None, lambda: False)
 check("Reihenfolge: Original, dann androif; androie übersprungen, App Cloner nie",
       calls == [("original", "R58"), ("clone", "com.instagram.androif")], calls)
 
 calls.clear()
-ig_worker_phone.update({"com.instagram.android": {"version_code": T}, "com.instagram.androif": {"version_code": T}})
+ig_worker_phone.update({"com.instagram.android": {"version_name": T}, "com.instagram.androif": {"version_name": T}})
 res = ig_worker.update_phone("R58", version, None, lambda t: None, lambda: False)
 check("alles aktuell -> nichts angefasst", calls == [] and set(res.values()) == {"schon aktuell"}, (calls, res))
 
 calls.clear()
-ig_worker_phone["com.instagram.androif"] = {"version_code": 1}
+ig_worker_phone["com.instagram.androif"] = {"version_name": OLD}
 ig_worker.update_phone("R58", version, ["com.instagram.androif"], lambda t: None, lambda: False)
 check("einzelne Kopie, Original schon aktuell -> nur die Kopie", calls == [("clone", "com.instagram.androif")], calls)
 
 calls.clear()
-ig_worker_phone["com.instagram.android"] = {"version_code": 1}
+ig_worker_phone["com.instagram.android"] = {"version_name": OLD}
 ig_worker.update_phone("R58", version, ["com.instagram.androif"], lambda t: None, lambda: False)
 check("einzelne Kopie, Original veraltet -> Original zuerst",
       calls == [("original", "R58"), ("clone", "com.instagram.androif")], calls)
+
+calls.clear()
+ig_worker_phone["com.instagram.android"] = {"version_name": "450.0.0.50.77"}
+ig_worker.update_phone("R58", version, ["com.instagram.androif"], lambda t: None, lambda: False)
+check("Original NEUER als Standard -> trotzdem erst auf Standard (App Cloner klont aus ihm)",
+      calls == [("original", "R58"), ("clone", "com.instagram.androif")], calls)
+
+calls.clear()
+ig_worker_phone.update({"com.instagram.androif": {"version_name": T, "version_code": 370711583}})
+res = ig_worker.update_phone("R58", version, ["com.instagram.androif"], lambda t: None, lambda: False)
+check("Kopie mit gleichem Namen, aber anderem Code (App Cloner 2.7.1) gilt als aktuell",
+      calls == [] and res == {"com.instagram.androif": "schon aktuell"}, (calls, res))
+ig_worker_phone["com.instagram.android"] = {"version_name": T}
 
 
 class Busy(FakeCloner):
@@ -242,6 +256,7 @@ class Busy(FakeCloner):
 
 
 app_cloner.Cloner = Busy
+ig_worker_phone["com.instagram.androif"] = {"version_name": OLD}
 ig_worker.BUSY_WAIT_SECONDS = -1
 try:
     ig_worker.update_phone("R58", version, None, lambda t: None, lambda: False)
@@ -316,7 +331,8 @@ check("Auftrag done mit Ergebnis je Paket", row["status"] == "done" and "com.ins
 
 print("Auftrag: Abbruch aus dem Dashboard")
 db.t["ig_update_jobs"].append({"id": 9, "server_name": "mac17", "serial": "R58", "package": None, "status": "queued", "scope": 1})
-ig_worker_phone["com.instagram.android"] = {"version_code": 1}
+ig_worker_phone["com.instagram.android"] = {"version_name": OLD}
+ig_worker_phone["com.instagram.androif"] = {"version_name": OLD}
 job = ig_worker._claim(db)
 db.t["ig_update_jobs"][-1]["status"] = "cancelled"
 calls.clear()

@@ -40,6 +40,16 @@ INSTALL_ANYWAY = ("Install anyway", "Trotzdem installieren")
 ERROR_RE = re.compile(r"\b(error|failed|fehler|fehlgeschlagen)\b", re.IGNORECASE)
 
 
+def version_key(name: str | None) -> tuple:
+    """"445.0.0.45.83" -> (445, 0, 0, 45, 83) zum Vergleichen.
+
+    Verglichen wird der Versionsname, nicht der versionCode: den Code einer Kopie
+    setzt der App Cloner selbst, je nach seiner Version anders (2.7.1 auf mac02:
+    445.0.0.45.83 mit Code 370711583, das Original hat 385111388).
+    """
+    return tuple(int(p) if p.isdigit() else 0 for p in (name or "").split(".")) if name else ()
+
+
 def clone_number(package: str) -> int | None:
     match = CLONE_RE.match(package)
     return ord(match.group(1)) - ord("d") if match else None
@@ -98,10 +108,10 @@ class Cloner:
                 hits.append(e)
         return hits
 
-    def version_code(self, package: str) -> int | None:
-        out = _shell(self.adb, self.serial, f"dumpsys package {package} | grep -m1 versionCode=")
-        match = re.search(r"versionCode=(\d+)", out)
-        return int(match.group(1)) if match else None
+    def version_name(self, package: str) -> str | None:
+        out = _shell(self.adb, self.serial, f"dumpsys package {package} | grep -m1 versionName=")
+        match = re.search(r"versionName=(\S+)", out)
+        return match.group(1) if match else None
 
     def foreground(self) -> str:
         """Die App, die gerade wirklich vorne läuft.
@@ -175,15 +185,16 @@ class Cloner:
                 time.sleep(2)
         return None
 
-    def update_clone(self, package: str, target_code: int) -> dict:
+    def update_clone(self, package: str, target: str) -> dict:
+        """Kopie auf Version `target` (Versionsname) heben."""
         number = clone_number(package)
         if number is None:
             raise RolloutError(f"{package} ist keine App-Cloner-Kopie")
-        before = self.version_code(package)
+        before = self.version_name(package)
         if before is None:
             raise RolloutError(f"{package} ist auf {self.serial} nicht installiert")
-        if before >= target_code:
-            return {"package": package, "result": "schon aktuell", "version_code": before}
+        if version_key(before) >= version_key(target):
+            return {"package": package, "result": "schon aktuell", "version": before}
 
         self.progress(f"Kopie #{number}: App Cloner öffnen")
         self.open_cloned_apps()
@@ -258,8 +269,8 @@ class Cloner:
         deadline = time.time() + INSTALL_TIMEOUT
         while True:
             time.sleep(POLL)
-            now = self.version_code(package)
-            if now is not None and now >= target_code:
+            now = self.version_name(package)
+            if version_key(now) >= version_key(target):
                 break
             els = self.elements()
             failed = [e for e in els if "install_failed" in (e.get("id") or "")]
@@ -274,4 +285,4 @@ class Cloner:
 
         self.clear_installer()
         self.key(3)
-        return {"package": package, "result": "aktualisiert", "version_code_before": before, "version_code": now}
+        return {"package": package, "result": "aktualisiert", "version_before": before, "version": now}

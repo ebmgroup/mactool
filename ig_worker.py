@@ -167,23 +167,27 @@ def update_phone(serial: str, version: dict, packages: list[str] | None, progres
     import phone_apps
     from app_cloner import Cloner, is_clone
 
-    target = int(version["version_code"])
+    from app_cloner import version_key
+
+    target = version["version_name"]
     cloner = Cloner(serial, progress)
     installed = phone_apps.read_phone(cloner.adb, serial)["packages"]
 
-    def code(package):
-        return installed.get(package, {}).get("version_code") or 0
+    def key(package):
+        return version_key(installed.get(package, {}).get("version_name"))
 
     # Ganzes Handy = alle Kopien + Original (das soll für späteres Hand-Klonen mitziehen)
     if packages:
         wanted = [p for p in packages if p in installed]
     else:
         wanted = sorted(p for p in installed if is_clone(p)) + ([ORIGINAL] if ORIGINAL in installed else [])
-    outdated = [p for p in wanted if code(p) < target]
+    # Veraltet = älterer Versionsname. Neuere bleiben unangetastet (wie im Dashboard grau).
+    outdated = [p for p in wanted if key(p) < version_key(target)]
     if not outdated:
         return {p: "schon aktuell" for p in wanted}
-    # Der App Cloner klont aus dem Original — veraltete Kopien brauchen es zuerst
-    original_due = code(ORIGINAL) < target and (
+    # Der App Cloner klont aus dem Original — es muss GENAU auf dem Standard stehen,
+    # auch wenn es neuer ist (sonst würden die Kopien z. B. 450 statt 445).
+    original_due = key(ORIGINAL) != version_key(target) and (
         ORIGINAL in outdated or any(is_clone(p) for p in outdated))
 
     if not _wait_until_idle(cloner, progress):

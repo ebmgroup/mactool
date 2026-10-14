@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.144 — 2026-10-14
+- **IG: Versionsname statt versionCode vergleichen.** Den Code einer Kopie setzt der App Cloner
+  selbst, je nach seiner Version anders (2.7.1: 445.0.0.45.83 mit 370711583, Original 385111388).
+  Vorher galten solche Kopien als veraltet (Dashboard rot, Worker hätte sie anfassen wollen)
+- Vor dem Klonen muss das Original **genau** auf dem Standard stehen — auch wenn es neuer ist
+  (073 auf mac02: Original 450, die Kopien wären sonst 450 statt 445 geworden)
+
 ## v1.0.143 — 2026-10-14
 - **IG-Aufträge bei vielen gleichzeitigen Klicks:**
   - Reihenfolge je Mac: App vor Phone vor Mac, sonst nach Klickzeit (`scope`-Spalte)
