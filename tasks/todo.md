@@ -38,7 +38,17 @@ gleichzeitige Klicks (Vorrang, Zusammenlegen, Unique-Index), CI-Test ohne .env.
 Offen:
 - [ ] Login-Check an einem Clone mit Bot-Account (Vorschlag: 428 Clone 4, asmuchaswatermelon)
 - [ ] App Cloner 2.7.1 (78 Phones) — Test auf einem Phone mit unbenutztem Clone
-- [ ] Dashboard prod: PR beta -> main, Review zweiter Kollege
+- [x] Dashboard ist live (Beta-Deploy schaltet Prod mit — Nico/Andi informieren)
+
+## Sicherheit (14.10.2026) — Meldung eines Kollegen, geprueft
+- [x] Kontroll-Admin-Schluessel aus dem Dashboard-Bundle (kontrolle-gateway, v2.49.0), von
+      Andreas mit Login getestet. Schluessel bleibt gueltig (Entscheidung Andreas)
+- [x] einrichtungsservice-proxy nur mit Login + 2 erlaubte Aufrufe (live)
+- [x] Logs 08.–14.10.: nur Macs, Edge Functions, Dashboard-Browser, Skript des Chefs (Mallorca)
+- [ ] Deploy-Lauf 38573928252: alte Release-Ordner (292) wirklich geloescht? /releases/v2.48.0-beta/ -> 404
+- [ ] CBS-API-Key im WordPress-Plugin erneuern (Proxy war offen)
+- [ ] Nico/Andi: Beta schaltet Prod mit um (switch.php?)
+- [ ] Optional: uebrige Edge Functions mit verify_jwt=false pruefen (vault-password, wasender-send …)
 - [ ] 428: /sdcard/Download/Instagram-445.0.0.45.83.apk (kaputter Bundle-Klon) aufraeumen
 - [ ] mac04: 4 Phones "unauthorized" (Box01 Phone 01/15/19, RF8M20TZ0QF) — vor Ort freigeben
 - [ ] test_parity.py / test_flow.py (Kunden-Statistik) waren schon vorher rot — untersuchen
