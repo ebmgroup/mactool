@@ -167,6 +167,14 @@ def _cmd_legacy_upload(args: dict) -> dict:
     return legacy_upload.get_status()
 
 
+def _cmd_apps(args: dict) -> dict:
+    """Instagram-Pakete auf den Handys: Version, Signatur, Split, System-App."""
+    import phone_apps
+
+    serials = [s.strip() for s in str(args.get("serial") or "").split(",") if s.strip()]
+    return phone_apps.inventory(serials or None)
+
+
 # ── Eingreifende Befehle (brauchen remote_allow_actions) ──────────────
 
 
@@ -483,6 +491,7 @@ HANDLERS: dict[str, tuple] = {
     "diag-db": (_cmd_diag_db, False),
     "versions": (_cmd_versions, False),
     "legacy-upload": (_cmd_legacy_upload, False),
+    "apps": (_cmd_apps, False),
     "warnings": (_cmd_warnings, False),
     "warning-text": (_cmd_warning_text, False),
     "warning-part": (_cmd_warning_part, False),

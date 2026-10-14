@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.0.129 — 2026-10-14
+- **Neuer lesender Befehl `apps`** (`phone_apps.py`): pro Handy Hersteller, Modell, Android,
+  Prozessor-Varianten, MIUI + Schalter „Über USB installieren"; pro Instagram-Paket
+  (`com.instagram.*`, also Original und alle App-Cloner-Kopien) und App Cloner: Version,
+  Installer, System-App/aktualisiert (Samsung, inkl. vorinstallierter Version), Anzahl
+  Split-APKs, Signatur-Kennung. Zusammenfassung je Paket: Versionen und Signaturen mit
+  Anzahl; das Urteil warnt, wenn eine Kopie auf den Handys verschieden signiert ist
+- Nur lesende Shell-Befehle (getprop, pm list/path, dumpsys), zwei adb-Aufrufe pro Handy.
+  `apps serial=<s1,s2>` liest nur diese Handys
+- Vorarbeit für den Instagram-Rollout
+
 ## v1.0.128 — 2026-09-29
 - Archiv: je ZIP zusätzlich die **`hierarchy.xml`** (UI-Abbild des Bildschirms) als eigene Datei
   (`…/<art>-<name>.xml`) — kommt im Dashboard mit in den Download eines Falls

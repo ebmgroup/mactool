@@ -1,3 +1,33 @@
+# Instagram-Rollout auf die Handys — Plan (ab v1.0.129)
+
+Ziel: Eine bereitgestellte Instagram-Version samt App-Cloner-Kopien per adb auf alle
+Handys bringen, ohne Logins zu verlieren. Testmac: **mac17** (dort noch nichts gemacht).
+
+## Fakten (mit Andreas geklaert)
+- Handys: Xiaomi Redmi + Samsung. Samsung: Instagram vorinstalliert -> Updates deinstallieren.
+- Ziel ist immer *unsere* bereitgestellte Version, nicht die neueste. Auto-Update ist aus.
+- Kopien: `com.instagram.androie`..`androil` (App Cloner #1..#8), Original `com.instagram.android`.
+- Auf dem Original liegen nach Umzug von storyfischer_ontour keine aktiven Accounts auf echten Handys.
+- Update ohne Loeschen scheitert von Hand oft — Grund unbekannt.
+
+## Schritt 1: `apps` (nur lesend)  <- jetzt
+- [ ] `phone_apps.py`: pro Handy Modell, Android, ABI, Xiaomi-USB-Install-Schalter;
+      pro Instagram-Paket + App Cloner: versionName/-Code, Installer, System/Update-Flag,
+      Anzahl Split-APKs, Signatur-Kennung
+- [ ] Fernbefehl `apps` (lesend) + Hilfetext in macctl
+- [ ] Test mit Fake-adb (tests/test_apps.py), in run_all.sh
+- [ ] v1.0.129 taggen, **nur mac17** updaten, `macctl.py mac17 apps` auswerten
+
+## Schritt 2: Test-Installation auf mac17 (eingreifend) — vorher Rueckfrage
+Regel (Andreas): live **Handy fuer Handy**, nie mehrere auf einmal. Der spaetere
+Installationsbefehl verlangt genau eine `serial`.
+- [ ] Auf je einem Redmi und Samsung: `adb install -r` eurer Version, Fehlercode notieren
+- [ ] Kopie: Signatur-Vergleich, Test-Update einer Kopie, Login pruefen
+
+## Schritt 3: `install-apk` — erst nach Schritt 2 entwerfen
+
+---
+
 # Statistik-Uploads im Mactool — Plan (v1.0.109)
 
 Ziel: Zwei getrennt schaltbare Statistik-Uploads im Mactool, beide manuell triggerbar,
