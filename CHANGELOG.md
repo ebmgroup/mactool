@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.0.133 — 2026-10-14
+- `phone-log` liest alle logcat-Puffer (`-b all`) statt der letzten 5000 Zeilen von main —
+  der Grund einer abgelehnten Installation steht im system-Puffer
+
 ## v1.0.132 — 2026-10-14
 - `apps` zeigt je Paket die Prozessor-Variante (`abi`, primaryCpuAbi)
 - Neuer lesender Befehl `phone-log serial=<s> [grep=…]`: Systemprotokoll (logcat) eines

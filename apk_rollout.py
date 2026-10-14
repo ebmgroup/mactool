@@ -311,8 +311,10 @@ def phone_log(serial: str, pattern: str | None, lines: int = 200) -> dict:
     """Ende des Systemprotokolls (logcat) eines Handys, optional gefiltert. Nur lesend."""
     adb = _adb()
     lines = max(1, min(int(lines), 1000))
-    out = subprocess.run([adb, "-s", serial, "logcat", "-d", "-t", "5000"],
-                         capture_output=True, text=True, timeout=60).stdout
+    # Ganzer Puffer aller Logs: der Grund einer abgelehnten Installation steht im
+    # system-Puffer und ist im main-Puffer nach zwei Minuten schon herausgerollt.
+    out = subprocess.run([adb, "-s", serial, "logcat", "-d", "-b", "all"],
+                         capture_output=True, text=True, timeout=120).stdout
     matcher = re.compile(pattern, re.IGNORECASE) if pattern else None
     hits = [l[:400] for l in out.splitlines() if not matcher or matcher.search(l)]
     return {"serial": serial, "grep": pattern, "lines": hits[-lines:]}
