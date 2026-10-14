@@ -122,6 +122,9 @@ class Cloner:
             if old_sdk and ok:
                 self.tap(ok[0], "OK (Hinweis altes Android)")
                 continue
+            # Der App Cloner merkt sich den letzten Reiter — oft ist man schon da
+            if self.pending_header(els):
+                return
             tabs = [e for e in els if e.get("click") and any(_plain(e.get("desc")).startswith(t) for t in TAB_CLONED_APPS)]
             if tabs:
                 self.tap(tabs[0], "Reiter CLONED APPS")
@@ -129,11 +132,15 @@ class Cloner:
                 return
         self.fail("App Cloner nicht bedienbar: Reiter CLONED APPS nicht gefunden")
 
+    @staticmethod
+    def pending_header(els: list[dict]) -> list[dict]:
+        return [e for e in els if _plain(e.get("text")).lower() in ("pending updates", "ausstehende updates")]
+
     def find_update_button(self, number: int) -> dict | None:
         """UPDATE-Knopf in der Zeile "Instagram • N" unter "Pending updates"."""
         for attempt in range(4):
             els = self.elements()
-            header = [e for e in els if _plain(e.get("text")).lower() in ("pending updates", "ausstehende updates")]
+            header = self.pending_header(els)
             if header:
                 top = _y_range(header[0]["bounds"])[1]
                 rows = [e for e in els if _plain(e.get("text")) == f"Instagram • {number}" and _y_range(e["bounds"])[0] >= top]

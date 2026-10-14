@@ -149,6 +149,13 @@ check("Tipp-Folge wie von Hand",
 check("App Cloner nie gelöscht/aktualisiert",
       not any("uninstall" in s or "install " in s and "pm" in s for s in phone.shell), phone.shell)
 
+print("App Cloner öffnet direkt im Reiter CLONED APPS (merkt sich den letzten)")
+phone = Phone([CLONED, DIALOG, CLONED_OK, ASK_UPDATE, INSTALLING],
+              {"com.instagram.androih": 1}, after_install={"com.instagram.androih": T})
+install(phone)
+out = app_cloner.Cloner("R58").update_clone("com.instagram.androih", T)
+check("ohne Reiter-Tipp weiter", out["result"] == "aktualisiert" and phone.taps[0] == "UPDATE", phone.taps)
+
 print("Schon aktuell")
 phone = Phone([MAIN], {"com.instagram.androih": T})
 install(phone)

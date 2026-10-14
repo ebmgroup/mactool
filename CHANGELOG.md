@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.0.139 — 2026-10-14
+- App Cloner: öffnet er schon im Reiter CLONED APPS (er merkt sich den letzten), geht es direkt
+  weiter — vorher Abbruch „Reiter nicht gefunden“ (Test auf mac17/428)
+- Edge Function `ig-versionen` (supabase/functions) im Kontroll-Projekt
+
 ## v1.0.138 — 2026-10-14
 - **IG Versionen** (Steuerpult im Dashboard unter /growth/ig-versionen):
   - `ig_worker.py`, eigener Scheduler-Job jede Minute (nicht die Befehlsqueue — ein ganzer Mac

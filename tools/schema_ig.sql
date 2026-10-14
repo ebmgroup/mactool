@@ -20,8 +20,10 @@ create table if not exists public.ig_versions (
   is_standard   boolean     not null default false,
   uploaded_by   text,
   created_at    timestamptz not null default now(),
-  note          text
+  note          text,
+  parts         jsonb                    -- [{bytes, sha256}] fuer den Upload aus dem Dashboard
 );
+alter table public.ig_versions add column if not exists parts jsonb;
 -- Hoechstens eine Standard-Version
 create unique index if not exists ig_versions_one_standard
   on public.ig_versions ((true)) where is_standard;
