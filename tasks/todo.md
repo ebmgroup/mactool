@@ -11,12 +11,15 @@ Handys bringen, ohne Logins zu verlieren. Testmac: **mac17** (dort noch nichts g
 - Update ohne Loeschen scheitert von Hand oft — Grund unbekannt.
 
 ## Schritt 1: `apps` (nur lesend)  <- jetzt
-- [ ] `phone_apps.py`: pro Handy Modell, Android, ABI, Xiaomi-USB-Install-Schalter;
+- [x] `phone_apps.py`: pro Handy Modell, Android, ABI, Xiaomi-USB-Install-Schalter;
       pro Instagram-Paket + App Cloner: versionName/-Code, Installer, System/Update-Flag,
       Anzahl Split-APKs, Signatur-Kennung
-- [ ] Fernbefehl `apps` (lesend) + Hilfetext in macctl
-- [ ] Test mit Fake-adb (tests/test_apps.py), in run_all.sh
-- [ ] v1.0.129 taggen, **nur mac17** updaten, `macctl.py mac17 apps` auswerten
+- [x] Fernbefehl `apps` (lesend) + Hilfetext in macctl
+- [x] Test mit Fake-adb (tests/test_apps.py), in run_all.sh
+- [x] v1.0.129 taggen, **nur mac17** updaten, `macctl.py mac17 apps` auswerten
+  Ergebnis: 20x Samsung A04s; Kopien einheitlich signiert (= App-Cloner-Schluessel), je 1 APK;
+  Original mit 2 verschiedenen Signaturen, 15 Handys am 08./09.10. auf 450.0.0.50.77 aktualisiert.
+  Vorbestehend rot (nicht von hier): test_parity.py, test_flow.py
 
 ## Schritt 2: Test-Installation auf mac17 (eingreifend) — vorher Rueckfrage
 Regel (Andreas): live **Handy fuer Handy**, nie mehrere auf einmal. Der spaetere
@@ -24,7 +27,14 @@ Installationsbefehl verlangt genau eine `serial`.
 - [ ] Auf je einem Redmi und Samsung: `adb install -r` eurer Version, Fehlercode notieren
 - [ ] Kopie: Signatur-Vergleich, Test-Update einer Kopie, Login pruefen
 
-## Schritt 3: `install-apk` — erst nach Schritt 2 entwerfen
+## Schritt 2 Ergebnis (14.10., 428)
+- [x] Original 445 per `apk-original` auf 428 (Downgrade -> Updates deinstalliert -> OK)
+- [x] App Cloner per `ui` bedient, Klon #1 gebaut -> MISSING_SPLIT (APKM-Bundle als Quelle)
+- [ ] **Andreas: einzelne Voll-APK (kein Bundle), arm64-v8a, nodpi, Instagram 445.0.0.45.83**
+- [ ] Damit Klon #1 auf 428 wiederholen, Login pruefen
+- [ ] `clone-update` automatisieren (Ablauf siehe Memory project_instagram_rollout)
+
+## Schritt 3: Verteilen auf die anderen Handys — nach Schritt 2
 
 ---
 
