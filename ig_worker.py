@@ -216,6 +216,9 @@ def update_phone(serial: str, version: dict, packages: list[str] | None, progres
             results[package] = cloner.update_clone(package, target)["result"]
         except apk_rollout.RolloutError as e:
             results[package] = f"Fehler: {e}"
+            # Sofort sichtbar machen — das Ergebnis landet sonst erst am Auftragsende in der DB
+            logger.warning(f"[{serial}] {package}: {e}")
+            progress(f"Fehler bei {package}: {e}")
             # Ein unerwarteter Bildschirm kann den nächsten Schritt verfälschen — Handy aufgeben
             break
     return results

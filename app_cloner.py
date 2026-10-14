@@ -83,6 +83,7 @@ class Cloner:
         return screen(self.serial, picture=False)["elements"]
 
     def fail(self, message: str):
+        logger.warning(f"[{self.serial}] App Cloner: {message}")
         try:
             picture = screen(self.serial, picture=True).get("picture")
         except Exception:
@@ -98,15 +99,29 @@ class Cloner:
         _shell(self.adb, self.serial, "input", "keyevent", str(code))
 
     def find(self, elements, texts=(), ids=(), desc_prefix=None) -> list[dict]:
-        hits = []
+        """Treffer nach Text / ID / Beschreibung — gleiche Elemente nur einmal.
+
+        Das Abbild über den uiautomator2-Dienst des Bots enthält alle Fenster; dasselbe
+        Element (gleiche ID, gleicher Text, gleiche Stelle) kann darin doppelt stehen.
+        """
+        hits, seen = [], set()
         for e in elements:
-            if texts and _plain(e.get("text")) in texts:
-                hits.append(e)
-            elif ids and e.get("id") in ids:
-                hits.append(e)
-            elif desc_prefix and _plain(e.get("desc")).startswith(desc_prefix):
+            if not ((texts and _plain(e.get("text")) in texts)
+                    or (ids and e.get("id") in ids)
+                    or (desc_prefix and _plain(e.get("desc")).startswith(desc_prefix))):
+                continue
+            key = (e.get("id"), e.get("text"), e.get("bounds"))
+            if key not in seen:
+                seen.add(key)
                 hits.append(e)
         return hits
+
+    @staticmethod
+    def nearest_below(candidates: list[dict], anchor: dict) -> dict | None:
+        """Von mehreren Knöpfen den, der direkt unter `anchor` (z. B. der Frage) liegt."""
+        top = _y_range(anchor["bounds"])[1]
+        below = [c for c in candidates if _y_range(c["bounds"])[0] >= top]
+        return min(below, key=lambda c: _y_range(c["bounds"])[0] - top) if below else None
 
     def version_name(self, package: str) -> str | None:
         out = _shell(self.adb, self.serial, f"dumpsys package {package} | grep -m1 versionName=")
@@ -247,11 +262,13 @@ class Cloner:
         while True:
             time.sleep(4)
             els = self.elements()
-            if self.find(els, ids=("com.android.packageinstaller:id/install_confirm_question_update",)):
+            question = self.find(els, ids=("com.android.packageinstaller:id/install_confirm_question_update",))
+            if question:
                 update = self.find(els, ids=("com.android.packageinstaller:id/button1",))
-                if len(update) != 1:
-                    self.fail("Update-Knopf des Installers nicht eindeutig")
-                self.tap(update[0], "Update (Android-Installer)")
+                button = update[0] if len(update) == 1 else self.nearest_below(update, question[0])
+                if button is None:
+                    self.fail(f"Update-Knopf des Installers nicht gefunden ({len(update)} Kandidaten)")
+                self.tap(button, "Update (Android-Installer)")
                 break
             if self.find(els, ids=("com.android.packageinstaller:id/install_confirm_question",)):
                 cancel = self.find(els, ids=("com.android.packageinstaller:id/button2",))

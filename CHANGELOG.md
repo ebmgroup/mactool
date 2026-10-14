@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.146 — 2026-10-14
+- App Cloner: gleiche Elemente im Abbild nur einmal zählen (uiautomator2 liefert alle Fenster);
+  bei mehreren Installer-Knöpfen den direkt unter der Update-Frage nehmen. Auf mac17/R58WB00BR3F
+  brach „Mac updaten“ genau dort ab, obwohl Android nach dem Update fragte
+- Fehler je App sofort ins Log und in den Auftragsfortschritt, nicht erst am Ende
+
 ## v1.0.145 — 2026-10-14
 - **IG parallel:** bis zu `ig_parallel_phones` (Standard 5, 1–10, per `set` änderbar) Phones je
   Mac gleichzeitig — über alle Aufträge zusammen; nie zwei Aufträge auf demselben Phone.

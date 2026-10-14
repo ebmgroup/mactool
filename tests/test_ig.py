@@ -105,7 +105,8 @@ class Phone:
             x, y = map(int, line.split()[2:4])
             hit = next((e for e in self.current() if e.get("click") and apk_rollout._center(e["bounds"]) == (x, y)), None)
             self.taps.append((hit or {}).get("text") or (hit or {}).get("desc"))
-            if hit and hit.get("id") == PI + "button1" and self.current() is ASK_UPDATE:
+            if hit and hit.get("id") == PI + "button1" and any(
+                    e.get("id") == PI + "install_confirm_question_update" for e in self.current()):
                 self.versions.update(self.after_install)
             self.advance()
         elif "dumpsys package" in line and "versionName" in line:
@@ -158,6 +159,18 @@ phone = Phone([CLONED, DIALOG, CLONED_OK, ASK_UPDATE, INSTALLING],
 install(phone)
 out = app_cloner.Cloner("R58").update_clone("com.instagram.androih", T)
 check("ohne Reiter-Tipp weiter", out["result"] == "aktualisiert" and phone.taps[0] == "UPDATE", phone.taps)
+
+print("Installer-Knopf doppelt im Abbild (alle Fenster über uiautomator2)")
+ASK_UPDATE_DOUBLE = ASK_UPDATE + [dict(ASK_UPDATE[2])]
+phone = Phone([CLONED, DIALOG, CLONED_OK, ASK_UPDATE_DOUBLE, INSTALLING],
+              {"com.instagram.androih": OLD}, after_install={"com.instagram.androih": T})
+install(phone)
+out = app_cloner.Cloner("R58").update_clone("com.instagram.androih", T)
+check("gleicher Knopf zweimal -> trotzdem getippt", out["result"] == "aktualisiert" and phone.taps[-1] == "Update", phone.taps)
+ASK_UPDATE_TWO = ASK_UPDATE + [el("Update", "[549,1450][679,1518]", click=True, id=PI + "button1")]
+c2 = app_cloner.Cloner("R58")
+pick = c2.nearest_below(c2.find(ASK_UPDATE_TWO, ids=(PI + "button1",)), ASK_UPDATE_TWO[0])
+check("zwei verschiedene -> der direkt unter der Frage", pick["bounds"] == "[549,850][679,918]", pick)
 
 print("Schon aktuell")
 phone = Phone([MAIN], {"com.instagram.androih": T})
