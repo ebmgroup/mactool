@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.140 — 2026-10-14
+- App Cloner: Android-Installer vor und nach jedem Klon-Vorgang beenden — ein hängengebliebenes
+  „Installing…“-Fenster machte uiautomator blind für den App Cloner (mac17/428)
+- Vordergrund-App über `topResumedActivity` statt `mCurrentFocus` (der zeigte bei so einem
+  Fenster `null`, obwohl der Bot Instagram bediente)
+
 ## v1.0.139 — 2026-10-14
 - App Cloner: öffnet er schon im Reiter CLONED APPS (er merkt sich den letzten), geht es direkt
   weiter — vorher Abbruch „Reiter nicht gefunden“ (Test auf mac17/428)

@@ -343,7 +343,7 @@ def screen(serial: str, picture: bool = True) -> dict:
     remote = "/data/local/tmp/mactool_ui.xml"
     _shell(adb, serial, "uiautomator", "dump", remote, timeout=30)
     xml = _shell(adb, serial, "cat", remote)
-    focus = _shell(adb, serial, "dumpsys window | grep -m1 mCurrentFocus")
+    focus = _shell(adb, serial, "dumpsys activity activities | grep -m1 -E 'topResumedActivity|mResumedActivity'")
     result = {"serial": serial, "focus": focus, "elements": parse_ui(xml)}
 
     if picture:

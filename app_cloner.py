@@ -104,12 +104,29 @@ class Cloner:
         return int(match.group(1)) if match else None
 
     def foreground(self) -> str:
-        return _shell(self.adb, self.serial, "dumpsys window | grep -m1 mCurrentFocus")
+        """Die App, die gerade wirklich vorne läuft.
+
+        Nicht mCurrentFocus: ein hängengebliebenes Installer-Fenster hält den Fokus
+        (zeigt dann "null"), während der Bot längst Instagram bedient (428, 14.10.).
+        """
+        return _shell(self.adb, self.serial,
+                      "dumpsys activity activities | grep -m1 -E 'topResumedActivity|mResumedActivity'")
+
+    def clear_installer(self):
+        """Android-Installer beenden: räumt hängengebliebene Fenster ("Installing…") weg.
+
+        Ein solches Geister-Fenster ist unsichtbar, aber uiautomator liest nur noch es —
+        der App Cloner darunter wäre für uns blind. Nur aufrufen, wenn keine eigene
+        Installation läuft.
+        """
+        for installer in ("com.google.android.packageinstaller", "com.android.packageinstaller"):
+            _shell(self.adb, self.serial, "am", "force-stop", installer)
 
     # ── Ablauf ────────────────────────────────────────────────────────
 
     def open_cloned_apps(self):
         """App Cloner vorne, Reiter CLONED APPS aktiv."""
+        self.clear_installer()
         self.key(3)  # Home: kein halber Zustand von vorher
         time.sleep(1)
         _shell(self.adb, self.serial, "monkey", "-p", APP_CLONER, "-c", "android.intent.category.LAUNCHER", "1")
@@ -255,5 +272,6 @@ class Cloner:
             if time.time() > deadline:
                 self.fail("Installation nicht abgeschlossen (5 min)")
 
+        self.clear_installer()
         self.key(3)
         return {"package": package, "result": "aktualisiert", "version_code_before": before, "version_code": now}

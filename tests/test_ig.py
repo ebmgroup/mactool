@@ -111,8 +111,8 @@ class Phone:
         elif "dumpsys package" in line and "versionCode" in line:
             pkg = line.split()[2]
             return f"versionCode={self.versions[pkg]} minSdk=28" if pkg in self.versions else ""
-        elif "mCurrentFocus" in line:
-            return "mCurrentFocus=Window{a u0 com.sec.android.app.launcher/Launcher}"
+        elif "topResumedActivity" in line:
+            return "topResumedActivity=ActivityRecord{a u0 com.sec.android.app.launcher/.Launcher t1}"
         return ""
 
 
@@ -146,6 +146,8 @@ out = app_cloner.Cloner("R58").update_clone("com.instagram.androih", T)
 check("Kopie #4 aktualisiert", out["result"] == "aktualisiert" and out["version_code"] == T, out)
 check("Tipp-Folge wie von Hand",
       phone.taps == ["CLONED APPS    ", "UPDATE", "UPDATE", "INSTALL APP", "Update"], phone.taps)
+check("Installer vorher und nachher beendet (Geister-Fenster)",
+      sum("force-stop com.google.android.packageinstaller" in s for s in phone.shell) == 2, phone.shell)
 check("App Cloner nie gelöscht/aktualisiert",
       not any("uninstall" in s or "install " in s and "pm" in s for s in phone.shell), phone.shell)
 
@@ -236,7 +238,7 @@ check("einzelne Kopie, Original veraltet -> Original zuerst",
 
 class Busy(FakeCloner):
     def foreground(self):
-        return "mCurrentFocus=Window{u0 com.instagram.androif/MainActivity}"
+        return "topResumedActivity=ActivityRecord{a u0 com.instagram.androif/com.instagram.mainactivity.MainActivity t9}"
 
 
 app_cloner.Cloner = Busy
