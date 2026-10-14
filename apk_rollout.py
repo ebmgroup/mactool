@@ -39,7 +39,7 @@ INSTALL_TIMEOUT = 900
 # voll, USB-Installation gesperrt …) wird gemeldet, ohne etwas zu entfernen.
 REMOVE_HELPS = ("INSTALL_FAILED_UPDATE_INCOMPATIBLE", "INSTALL_FAILED_VERSION_DOWNGRADE")
 
-_RESULT_RE = re.compile(r"(Success|Failure \[[^\]]*\]|Exception occurred[^\n]*)")
+_RESULT_RE = re.compile(r"(Success|Failure \[[^\]]*\]|Exception occurred[^\n]*\n?[^\n]*)")
 
 
 class RolloutError(RuntimeError):
@@ -358,15 +358,23 @@ def clone_install(serial: str, path: str, package: str) -> dict:
     if before is None:
         raise RolloutError(f"{package} ist auf {serial} nicht installiert — nur Updates erlaubt")
 
-    out = _shell(adb, serial, "pm", "install", "-r", path, timeout=INSTALL_TIMEOUT)
-    match = _RESULT_RE.search(out)
-    result = match.group(1) if match else out[-300:]
+    # pm darf /sdcard auf neueren Android-Versionen nicht lesen -> erst auf den Mac holen.
+    # Die Datei liegt danach ohnehin dort, wo das Verteilen sie braucht.
+    local = STAGE_DIR / "clones" / f"{package}-{Path(path).name}"
+    local.parent.mkdir(parents=True, exist_ok=True)
+    pulled = subprocess.run([adb, "-s", serial, "pull", path, str(local)],
+                            capture_output=True, text=True, timeout=INSTALL_TIMEOUT)
+    if pulled.returncode != 0 or not local.exists():
+        raise RolloutError(f"adb pull fehlgeschlagen: {(pulled.stderr or pulled.stdout)[-200:]}")
+    result = _install(adb, serial, [local])
     after = read_phone(adb, serial)["packages"].get(package)
     return {
         "serial": serial,
         "package": package,
         "verdict": (f"OK: {package} jetzt {after.get('version_name')}" if result == "Success"
                     else f"NICHT aktualisiert: {result}"),
+        "local_file": str(local),
+        "signature": apk_signature(local),
         "before": before,
         "after": after,
     }

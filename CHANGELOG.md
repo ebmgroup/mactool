@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.0.135 — 2026-10-14
+- `clone-install` holt die Datei per `adb pull` nach `apk_stage/clones/` und installiert von dort
+  (`pm install` darf `/sdcard` auf Android 11+ nicht lesen); meldet die Signatur der Datei
+
 ## v1.0.134 — 2026-10-14
 - `phone-apks serial=<s>` (lesend): APK-Dateien in `/sdcard`, neueste zuerst — dort legt der
   App Cloner die gebauten Kopien ab
