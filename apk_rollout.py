@@ -111,6 +111,55 @@ def apk_signature(path: Path) -> str | None:
     return None
 
 
+_ATTR_VERSION_CODE = 0x0101021B
+_ATTR_VERSION_NAME = 0x0101021C
+
+
+def apk_manifest(path: Path) -> dict:
+    """Paket, versionCode und versionName aus dem binären AndroidManifest — ohne aapt.
+
+    Liest nur den ersten Start-Tag (<manifest>): Stringpool, Ressourcen-ID-Tabelle,
+    dann dessen Attribute.
+    """
+    data = zipfile.ZipFile(path).read("AndroidManifest.xml")
+    strings, res_ids, pos = [], [], 8
+    while pos < len(data):
+        chunk_type, header_size, chunk_size = struct.unpack("<HHI", data[pos:pos + 8])
+        if chunk_type == 0x0001:  # Stringpool
+            count, _, flags, strings_start = struct.unpack("<IIII", data[pos + 8:pos + 24])
+            offsets = struct.unpack(f"<{count}I", data[pos + header_size:pos + header_size + 4 * count])
+            base = pos + strings_start
+            for off in offsets:
+                at = base + off
+                if flags & 0x100:  # UTF-8: Zeichenlänge, Bytelänge, Bytes
+                    at += 2 if data[at] & 0x80 else 1
+                    n = data[at] & 0x7F if not data[at] & 0x80 else ((data[at] & 0x7F) << 8) | data[at + 1]
+                    at += 2 if data[at] & 0x80 else 1
+                    strings.append(data[at:at + n].decode("utf-8", "replace"))
+                else:  # UTF-16
+                    n = struct.unpack("<H", data[at:at + 2])[0]
+                    strings.append(data[at + 2:at + 2 + 2 * n].decode("utf-16-le", "replace"))
+        elif chunk_type == 0x0180:  # Ressourcen-IDs der Attributnamen
+            res_ids = list(struct.unpack(f"<{(chunk_size - 8) // 4}I", data[pos + 8:pos + chunk_size]))
+        elif chunk_type == 0x0102:  # erster Start-Tag = <manifest>
+            attr_start, attr_size, attr_count = struct.unpack("<HHH", data[pos + 24:pos + 30])
+            info = {}
+            for i in range(attr_count):
+                at = pos + 16 + attr_start + i * attr_size
+                _, name, raw, _, _, vtype, value = struct.unpack("<iiiHBBI", data[at:at + 20])
+                rid = res_ids[name] if name < len(res_ids) else None
+                text = strings[raw] if raw >= 0 else None
+                if rid == _ATTR_VERSION_CODE:
+                    info["version_code"] = value
+                elif rid == _ATTR_VERSION_NAME:
+                    info["version_name"] = text
+                elif strings[name] == "package":
+                    info["package"] = text
+            return info
+        pos += chunk_size
+    return {}
+
+
 # ── apk-fetch ─────────────────────────────────────────────────────────
 
 
@@ -151,11 +200,13 @@ def fetch(release: str) -> dict:
     base = next((a for a in apks if a.name in ("base.apk", bundle.name)), apks[0] if apks else None)
     if base is None:
         raise RolloutError("Keine APK im Paket")
+    manifest_info = apk_manifest(base)  # die Datei selbst ist die Wahrheit, nicht info.json
     summary = {
         "release": release,
-        "package": info.get("pname"),
-        "version_name": info.get("release_version"),
-        "version_code": int(info["versioncode"]) if info.get("versioncode") else None,
+        "package": manifest_info.get("package") or info.get("pname"),
+        "version_name": manifest_info.get("version_name") or info.get("release_version"),
+        "version_code": manifest_info.get("version_code")
+        or (int(info["versioncode"]) if info.get("versioncode") else None),
         "variant": info.get("variant"),
         "signature": apk_signature(base),
         "apks": [a.name for a in apks],

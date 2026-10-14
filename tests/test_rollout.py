@@ -74,6 +74,36 @@ for path, pkg, name in (("/data/x.apk", "com.instagram.androie", "Pfad außerhal
 check("clone-install ist eingreifend", remote_commands.HANDLERS["clone-install"][1] is True)
 check("phone-apks ist lesend", remote_commands.HANDLERS["phone-apks"][1] is False)
 
+import struct, io
+
+
+def axml(package, code, name):
+    """Minimales binäres Manifest: UTF-8-Stringpool, Ressourcen-IDs, <manifest>-Tag."""
+    strs = ["versionCode", "versionName", "package", "manifest", name, package]
+    body = b"".join(bytes([len(s), len(s)]) + s.encode() + b"\0" for s in strs)
+    offs, o = [], 0
+    for s in strs:
+        offs.append(o); o += len(s) + 3
+    body += b"\0" * (-len(body) % 4)
+    hdr = 28
+    pool = struct.pack("<HHIIIIII", 1, hdr, hdr + 4 * len(strs) + len(body), len(strs), 0, 0x100,
+                       hdr + 4 * len(strs), 0) + struct.pack(f"<{len(strs)}I", *offs) + body
+    resmap = struct.pack("<HHI", 0x180, 8, 16) + struct.pack("<II", 0x0101021B, 0x0101021C)
+    attrs = (struct.pack("<iiiHBBI", -1, 0, -1, 8, 0, 0x10, code)
+             + struct.pack("<iiiHBBI", -1, 1, 4, 8, 0, 0x03, 4)
+             + struct.pack("<iiiHBBI", -1, 2, 5, 8, 0, 0x03, 5))
+    tag = struct.pack("<HHIIiiiHHHHHH", 0x102, 16, 36 + len(attrs), 1, -1, -1, 3, 20, 20, 3, 0, 0, 0) + attrs
+    doc = pool + resmap + tag
+    return struct.pack("<HHI", 3, 8, 8 + len(doc)) + doc
+
+
+fake = STAGE_TMP = Path(tempfile.mkdtemp()) / "x.apk"
+with zipfile.ZipFile(fake, "w") as z:
+    z.writestr("AndroidManifest.xml", axml("com.instagram.android", 385111388, "445.0.0.45.83"))
+check("Manifest: Paket, versionCode, versionName aus der APK",
+      apk_rollout.apk_manifest(fake) == {"package": "com.instagram.android", "version_code": 385111388,
+                                         "version_name": "445.0.0.45.83"}, apk_rollout.apk_manifest(fake))
+
 print("Original installieren")
 STAGE = Path(tempfile.mkdtemp())
 apk_rollout.STAGE_DIR = STAGE

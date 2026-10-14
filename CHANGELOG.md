@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.0.136 — 2026-10-14
+- `apk-fetch` liest Paket, versionCode und versionName direkt aus dem binären Manifest der APK
+  (kein aapt nötig) — so funktionieren auch einzelne `.apk` ohne `info.json`
+- `tools/apk_upload.py <datei> <release>`: Release in Teilen + manifest.json in den Bucket `apk`
+
 ## v1.0.135 — 2026-10-14
 - `clone-install` holt die Datei per `adb pull` nach `apk_stage/clones/` und installiert von dort
   (`pm install` darf `/sdcard` auf Android 11+ nicht lesen); meldet die Signatur der Datei
