@@ -18,11 +18,13 @@ je Mac (alles). Updates darf jeder MA ausloesen. Ausfuehrung ueber das MacTool.
 - Dashboard: Seite /growth/ig-versionen, Menuepunkt in BOARD_MENU.growth, PR nach `beta`.
 
 ## Schritte
-- [ ] schema_ig.sql + einspielen
-- [ ] Mac: clone_update (App-Cloner-Ablauf), ig_worker, Scheduler, Tests
-- [ ] Edge Function + Deploy + Secrets
-- [ ] Dashboard-Seite, APK-Pruefung im Browser, Tests, PR nach beta
-- [ ] mac17 ausrollen, Ende-zu-Ende-Test auf 428, dann alle Macs
+- [x] schema_ig.sql + einspielen
+- [x] Mac: clone_update (App-Cloner-Ablauf), ig_worker, Scheduler, Tests
+- [x] Edge Function + Deploy + Secrets
+- [x] Dashboard-Seite, APK-Pruefung im Browser, Tests, PR nach beta
+- [x] mac17 ausrollen, Ende-zu-Ende-Test auf 428 (Auftrag #4, Clone #7 OK), alle Macs v1.0.142
+- [ ] Login-Check: Clone mit aktivem Bot-Account updaten, naechsten Bot-Lauf pruefen
+- [ ] Beta -> main (Review durch zweiten Kollegen)
 
 ---
 

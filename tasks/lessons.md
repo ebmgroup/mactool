@@ -16,3 +16,10 @@
   Belegt war am Ende: DOWNGRADE beim Original, MISSING_SPLIT bei den Kopien.
 - Regel: Android-Installationsfehler immer per `adb install -r` vom Mac reproduzieren — der
   liefert `Failure [INSTALL_FAILED_…]`. Die Handy-Meldung "nicht kompatibel" sagt nichts.
+
+## Ein Lesebefehl, der still scheitert, liefert alte Daten (2026-10-14)
+- Fehler: `uiautomator dump` scheiterte (Bot haelt UiAutomation), `cat` las die Datei vom
+  letzten Erfolg -> stundenlang ein laengst verschwundenes "Installing…", zwei falsche
+  Erklaerungen meinerseits ("Geister-Fenster").
+- Regel: Ausgabedateien vor dem Erzeugen loeschen und den Erfolg pruefen. Bei Raetseln zuerst
+  das Systemprotokoll (`phone-log`) lesen, bevor eine Ursache behauptet wird.
