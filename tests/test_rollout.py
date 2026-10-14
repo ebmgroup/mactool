@@ -104,9 +104,61 @@ check("Manifest: Paket, versionCode, versionName aus der APK",
       apk_rollout.apk_manifest(fake) == {"package": "com.instagram.android", "version_code": 385111388,
                                          "version_name": "445.0.0.45.83"}, apk_rollout.apk_manifest(fake))
 
+print("apk-fetch")
+import hashlib
+apk_bytes = fake.read_bytes()
+
+
+class FakeBucket:
+    def __init__(self, files):
+        self.files = files
+
+    def download(self, path):
+        return self.files[path]
+
+
+class FakeStorage:
+    def __init__(self, files):
+        self.bucket = FakeBucket(files)
+
+    def from_(self, name):
+        return self.bucket
+
+
+class FakeClient:
+    def __init__(self, files):
+        self.storage = FakeStorage(files)
+
+
+def bucket_with(release, file_name, payload):
+    half = len(payload) // 2
+    parts = [payload[:half], payload[half:]]
+    files = {f"{release}/part{i:03d}": p for i, p in enumerate(parts)}
+    files[f"{release}/manifest.json"] = json.dumps({
+        "file": file_name, "bytes": len(payload), "sha256": hashlib.sha256(payload).hexdigest(),
+        "parts": [{"name": f"{release}/part{i:03d}", "sha256": hashlib.sha256(p).hexdigest()}
+                  for i, p in enumerate(parts)]}).encode()
+    return files
+
+
+apk_rollout.STAGE_DIR = Path(tempfile.mkdtemp())
+files = bucket_with("ig-apk", "instagram-445_(1).apk", apk_bytes)
+apk_rollout._sb = lambda: FakeClient(files)
+(apk_rollout.STAGE_DIR / "ig-apk").mkdir()
+(apk_rollout.STAGE_DIR / "ig-apk" / "alt.apk").write_bytes(b"alt")
+got = apk_rollout.fetch("ig-apk")
+check("einzelne .apk: geladen, nicht weggeräumt",
+      got["apks"] == ["instagram-445_(1).apk"] and got["version_code"] == 385111388, got)
+check("Reste eines früheren Abrufs weg", not (apk_rollout.STAGE_DIR / "ig-apk" / "alt.apk").exists())
+files["ig-apk/part001"] = b"kaputt"
+try:
+    apk_rollout.fetch("ig-apk")
+    check("falsche Prüfsumme bricht ab", False)
+except apk_rollout.RolloutError:
+    check("falsche Prüfsumme bricht ab", True)
+
 print("Original installieren")
 STAGE = Path(tempfile.mkdtemp())
-apk_rollout.STAGE_DIR = STAGE
 rel = STAGE / "ig-445"
 rel.mkdir()
 for name in ("base.apk", "split_config.xxhdpi.apk"):

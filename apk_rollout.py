@@ -170,6 +170,10 @@ def fetch(release: str) -> dict:
     manifest = json.loads(bucket.download(f"{release}/manifest.json"))
 
     target.mkdir(parents=True, exist_ok=True)
+    # Reste eines früheren Abrufs zuerst weg — danach nicht mehr, sonst trifft es bei
+    # einer einzelnen .apk die gerade geladene Datei selbst.
+    for old in target.glob("*.apk"):
+        old.unlink()
     bundle = target / Path(manifest["file"]).name
     whole = hashlib.sha256()
     with open(bundle, "wb") as out:
@@ -183,8 +187,6 @@ def fetch(release: str) -> dict:
         bundle.unlink(missing_ok=True)
         raise RolloutError("Prüfsumme der Gesamtdatei falsch")
 
-    for old in target.glob("*.apk"):
-        old.unlink()
     info = {}
     if bundle.suffix == ".apk":
         apks = [bundle]

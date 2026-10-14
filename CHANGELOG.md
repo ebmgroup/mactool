@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.0.137 — 2026-10-14
+- Fix `apk-fetch`: bei einer einzelnen `.apk` wurde die gerade geladene Datei als „alte APK“
+  gelöscht. Aufräumen jetzt vor dem Laden
+
 ## v1.0.136 — 2026-10-14
 - `apk-fetch` liest Paket, versionCode und versionName direkt aus dem binären Manifest der APK
   (kein aapt nötig) — so funktionieren auch einzelne `.apk` ohne `info.json`
