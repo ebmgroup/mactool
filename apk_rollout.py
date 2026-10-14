@@ -307,6 +307,17 @@ def screen(serial: str, picture: bool = True) -> dict:
     return result
 
 
+def phone_log(serial: str, pattern: str | None, lines: int = 200) -> dict:
+    """Ende des Systemprotokolls (logcat) eines Handys, optional gefiltert. Nur lesend."""
+    adb = _adb()
+    lines = max(1, min(int(lines), 1000))
+    out = subprocess.run([adb, "-s", serial, "logcat", "-d", "-t", "5000"],
+                         capture_output=True, text=True, timeout=60).stdout
+    matcher = re.compile(pattern, re.IGNORECASE) if pattern else None
+    hits = [l[:400] for l in out.splitlines() if not matcher or matcher.search(l)]
+    return {"serial": serial, "grep": pattern, "lines": hits[-lines:]}
+
+
 # ── App Cloner bedienen ───────────────────────────────────────────────
 
 APP_CLONER = "com.applisto.appcloner"

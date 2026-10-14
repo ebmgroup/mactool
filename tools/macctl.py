@@ -367,6 +367,7 @@ def cmd_commands(rest: Rest, namespace) -> int:
     print("Lesend:   status  config  logs  files  diag-upload  diag-db  versions  legacy-upload")
     print("          warnings  warning-text name=<zip>  warning-part name=<zip> member=<datei> offset=<n>")
     print("          apps [serial=<s1,s2>]   Instagram-Versionen/Signaturen auf den Handys")
+    print("          phone-log serial=<s> [grep=<muster>] [lines=<n>]   Systemprotokoll eines Handys")
     print("          screen serial=<s> [bild=false]   Bildschirm-Elemente + Screenshot (Bucket apk)")
     print("Eingreifend (brauchen remote_allow_actions):")
     print("          sync  cleanup  set  customer-stats  bot  rustdesk  update")

@@ -192,6 +192,15 @@ def _cmd_screen(args: dict) -> dict:
     return _rollout(lambda: apk_rollout.screen(apk_rollout._single_serial(args), picture))
 
 
+
+def _cmd_phone_log(args: dict) -> dict:
+    """Systemprotokoll eines Handys (logcat -d), z. B. grep=PackageManager|INSTALL_FAILED."""
+    import apk_rollout
+
+    return _rollout(lambda: apk_rollout.phone_log(
+        apk_rollout._single_serial(args), args.get("grep") or None, args.get("lines") or 200))
+
+
 # ── Eingreifende Befehle (brauchen remote_allow_actions) ──────────────
 
 
@@ -534,6 +543,7 @@ HANDLERS: dict[str, tuple] = {
     "legacy-upload": (_cmd_legacy_upload, False),
     "apps": (_cmd_apps, False),
     "screen": (_cmd_screen, False),
+    "phone-log": (_cmd_phone_log, False),
     "warnings": (_cmd_warnings, False),
     "warning-text": (_cmd_warning_text, False),
     "warning-part": (_cmd_warning_part, False),

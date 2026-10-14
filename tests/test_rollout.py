@@ -36,6 +36,7 @@ except apk_rollout.RolloutError:
     check("Release-Name mit Pfad abgelehnt", True)
 check("apk-original ist eingreifend", remote_commands.HANDLERS["apk-original"][1] is True)
 check("apk-fetch ist eingreifend", remote_commands.HANDLERS["apk-fetch"][1] is True)
+check("phone-log ist lesend", remote_commands.HANDLERS["phone-log"][1] is False)
 check("screen ist lesend", remote_commands.HANDLERS["screen"][1] is False)
 check("Java-Hash wie Arrays.hashCode", apk_rollout._java_hash(bytes([1, 2, 255])) == format(((31 * (31 * (31 + 1) + 2)) - 1) & 0xFFFFFFFF, "x"))
 

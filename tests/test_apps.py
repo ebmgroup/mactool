@@ -46,6 +46,7 @@ def dump(version, code, sig, flags="[ HAS_CODE ALLOW_CLEAR_USER_DATA ]", hidden=
     versionCode={code} minSdk=28 targetSdk=34
     versionName={version}
     pkgFlags={flags}
+    primaryCpuAbi=arm64-v8a
     firstInstallTime=2025-01-02 10:00:00
     lastUpdateTime=2026-03-04 11:00:00
     signatures=PackageSignatures{{7d3f1c version:3, signatures:[{sig}], past signatures:[]}}
@@ -148,6 +149,7 @@ check("Redmi: MIUI und USB-Installation erkannt", redmi.get("miui") == "V125" an
 original = redmi["packages"]["com.instagram.android"]
 check("Redmi: Original geteilt in 3 APKs", original["apk_count"] == 3 and original["split"] is True, original)
 check("Redmi: Version + Signatur", original["version_name"] == "372.0.0.0.10" and original["signature"] == "c0ffee01", original)
+check("Prozessor-Variante gelesen", original.get("abi") == "arm64-v8a", original)
 check("Redmi: keine System-App", original["system"] is False and "system_version_name" not in original)
 check("Redmi: Klon-Installer ist der App Cloner",
       redmi["packages"]["com.instagram.androie"]["installer"] == "com.applisto.appcloner")

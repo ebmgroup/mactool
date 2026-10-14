@@ -133,6 +133,9 @@ def parse_dumpsys(text: str) -> dict:
         "signature": signature.group(1).replace(" ", "") if signature else None,
         "first_install": first(r"firstInstallTime=([^\n]+)"),
         "last_update": first(r"lastUpdateTime=([^\n]+)"),
+        # Welche Prozessor-Variante die installierte App nutzt (arm64-v8a / armeabi-v7a).
+        # Ein Update in die andere Variante lehnt Android als "nicht kompatibel" ab.
+        "abi": first(r"primaryCpuAbi=(\S+)"),
     }
     if hidden.strip():
         info["system_version_name"] = first(r"versionName=(\S+)", hidden)

@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.0.132 — 2026-10-14
+- `apps` zeigt je Paket die Prozessor-Variante (`abi`, primaryCpuAbi)
+- Neuer lesender Befehl `phone-log serial=<s> [grep=…]`: Systemprotokoll (logcat) eines
+  Handys — dort steht der echte Grund, wenn Android "App nicht kompatibel" meldet
+
 ## v1.0.131 — 2026-10-14
 - `ui serial=<s> action=open|tap|scroll|back|home`: App Cloner auf **einem** Handy bedienen.
   `open` startet ausschließlich den App Cloner; `tap` tippt nur ein Element, das im aktuellen
