@@ -45,7 +45,7 @@ Offen:
       Andreas mit Login getestet. Schluessel bleibt gueltig (Entscheidung Andreas)
 - [x] einrichtungsservice-proxy nur mit Login + 2 erlaubte Aufrufe (live)
 - [x] Logs 08.–14.10.: nur Macs, Edge Functions, Dashboard-Browser, Skript des Chefs (Mallorca)
-- [ ] Deploy-Lauf 38573928252: alte Release-Ordner (292) wirklich geloescht? /releases/v2.48.0-beta/ -> 404
+- [x] Alte Release-Ordner geloescht (315, zuletzt v2.48.0-beta per Rerun) — nur v2.49.0-beta (ohne Schluessel) uebrig
 - [ ] CBS-API-Key im WordPress-Plugin erneuern (Proxy war offen)
 - [ ] Nico/Andi: Beta schaltet Prod mit um (switch.php?)
 - [ ] Optional: uebrige Edge Functions mit verify_jwt=false pruefen (vault-password, wasender-send …)
