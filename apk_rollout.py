@@ -337,12 +337,33 @@ def parse_ui(xml: str) -> list[dict]:
     return nodes
 
 
+UI_DUMP = "/data/local/tmp/mactool_ui.xml"
+
+
+def dump_ui(adb: str, serial: str, attempts: int = 4) -> str:
+    """Frisches Bildschirm-Abbild — nie das alte.
+
+    uiautomator scheitert, wenn der Bildschirm nicht zur Ruhe kommt ("could not get
+    idle state", z. B. Video im Feed). Dann blieb früher die Datei vom letzten
+    erfolgreichen Abbild liegen und wurde gelesen: auf 428 stundenlang ein
+    "Installing…", das längst weg war. Deshalb: Datei vorher löschen, Erfolg prüfen.
+    """
+    last = ""
+    for attempt in range(attempts):
+        _shell(adb, serial, "rm", "-f", UI_DUMP)
+        last = _shell(adb, serial, "uiautomator", "dump", UI_DUMP, timeout=40)
+        if "dumped to" in last:
+            xml = _shell(adb, serial, "cat", UI_DUMP)
+            if "<hierarchy" in xml:
+                return xml
+        time.sleep(2)
+    raise RolloutError(f"Bildschirm nicht lesbar (uiautomator): {last[-200:] or 'keine Ausgabe'}")
+
+
 def screen(serial: str, picture: bool = True) -> dict:
     """Was gerade auf dem Handy zu sehen ist. Ändert nichts am Zustand der Apps."""
     adb = _adb()
-    remote = "/data/local/tmp/mactool_ui.xml"
-    _shell(adb, serial, "uiautomator", "dump", remote, timeout=30)
-    xml = _shell(adb, serial, "cat", remote)
+    xml = dump_ui(adb, serial)
     focus = _shell(adb, serial, "dumpsys activity activities | grep -m1 -E 'topResumedActivity|mResumedActivity'")
     result = {"serial": serial, "focus": focus, "elements": parse_ui(xml)}
 

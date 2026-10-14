@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.141 — 2026-10-14
+- **Bildschirm-Abbild nie veraltet:** scheiterte `uiautomator dump` („could not get idle state“),
+  wurde bisher die alte Datei gelesen — auf 428 stundenlang ein längst verschwundenes
+  „Installing…“. Jetzt: Datei vorher löschen, Erfolg prüfen, bis zu 4 Versuche, sonst klare Meldung
+- IG-Worker: nach einem Neustart (z. B. MacTool-Update mitten im Auftrag) werden „laufende“
+  Aufträge dieses Macs wieder eingereiht statt ewig auf „läuft“ zu hängen
+
 ## v1.0.140 — 2026-10-14
 - App Cloner: Android-Installer vor und nach jedem Klon-Vorgang beenden — ein hängengebliebenes
   „Installing…“-Fenster machte uiautomator blind für den App Cloner (mac17/428)

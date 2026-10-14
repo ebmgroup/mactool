@@ -317,6 +317,15 @@ ig_worker.run_job(db, job)
 check("abgebrochen bleibt abgebrochen, nichts installiert",
       db.t["ig_update_jobs"][-1]["status"] == "cancelled" and calls == [], (db.t["ig_update_jobs"][-1], calls))
 
+print("Neustart: verwaiste laufende Aufträge werden wieder eingereiht")
+db.t["ig_update_jobs"] = [
+    {"id": 20, "server_name": "mac17", "status": "running"},
+    {"id": 21, "server_name": "mac22", "status": "running"},
+    {"id": 22, "server_name": "mac17", "status": "done"},
+]
+check("nur laufende dieses Macs", ig_worker._recover_orphans(db) == 1
+      and [r["status"] for r in db.t["ig_update_jobs"]] == ["queued", "running", "done"], db.t["ig_update_jobs"])
+
 print("Bestand: verschwundene Handys werden entfernt")
 db.t["ig_phones"] = [{"server_name": "mac17", "serial": "ALT"}, {"server_name": "mac22", "serial": "ANDERER"}]
 phone_apps.inventory = lambda serials=None: {"phones": [{"serial": "R58", "state": "device", "packages": {}}]}

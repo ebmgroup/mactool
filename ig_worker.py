@@ -28,6 +28,7 @@ BUSY_WAIT_SECONDS = 20 * 60   # so lange auf einen freien Moment warten, dann Ha
 MAX_TEXT = 500
 
 _last_inventory = 0.0
+_recovered = False
 
 
 def _client() -> SupabaseRest | None:
@@ -90,6 +91,18 @@ def _patch(client: SupabaseRest, job_id: int, values: dict) -> None:
 def _cancelled(client: SupabaseRest, job_id: int) -> bool:
     rows = client.select("ig_update_jobs", {"select": "status", "id": f"eq.{job_id}"})
     return bool(rows) and rows[0]["status"] == "cancelled"
+
+
+def _recover_orphans(client: SupabaseRest) -> int:
+    """Nach einem Neustart: "running"-Aufträge dieses Macs gehören niemandem mehr.
+
+    Ein Update des MacTools (oder ein Absturz) beendet den Prozess mitten im Auftrag.
+    Wieder einreihen ist sicher: was schon auf Stand ist, wird übersprungen.
+    """
+    server = get_config().server_name
+    rows = client.update("ig_update_jobs", {"server_name": f"eq.{server}", "status": "eq.running"},
+                         {"status": "queued", "progress": "nach Neustart des MacTools erneut eingereiht"})
+    return len(rows)
 
 
 def _claim(client: SupabaseRest) -> dict | None:
@@ -254,12 +267,15 @@ def run_job(client: SupabaseRest, job: dict) -> None:
 
 def run_ig_worker_job() -> dict:
     """Scheduler-Einstieg: ggf. Bestand melden, dann höchstens einen Auftrag abarbeiten."""
-    global _last_inventory
+    global _last_inventory, _recovered
     client = _client()
     if client is None:
         return {"status": "no_supabase"}
     done = {}
     try:
+        if not _recovered:
+            done["recovered"] = _recover_orphans(client)
+            _recovered = True
         if time.time() - _last_inventory > INVENTORY_MINUTES * 60:
             done["inventory"] = report_inventory(client)
             _last_inventory = time.time()

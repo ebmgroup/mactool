@@ -157,6 +157,36 @@ try:
 except apk_rollout.RolloutError:
     check("falsche Prüfsumme bricht ab", True)
 
+print("Bildschirm-Abbild nie veraltet")
+calls_ui = []
+
+
+def fake_dump_shell(outputs):
+    seq = list(outputs)
+
+    def shell(adb, serial, *cmd, timeout=60):
+        line = " ".join(cmd)
+        calls_ui.append(line)
+        if line.startswith("uiautomator dump"):
+            return seq.pop(0)
+        if line.startswith("cat"):
+            return "<hierarchy><node text='frisch' clickable='true' bounds='[0,0][1,1]'/></hierarchy>"
+        return ""
+    return shell
+
+
+apk_rollout.time.sleep = lambda s: None
+apk_rollout._shell = fake_dump_shell(["ERROR: could not get idle state.", "UI hierchary dumped to: /data/local/tmp/mactool_ui.xml"])
+xml = apk_rollout.dump_ui("/fake/adb", "R58")
+check("Fehlschlag -> neu versucht, alte Datei vorher gelöscht",
+      "frisch" in xml and calls_ui.count("rm -f /data/local/tmp/mactool_ui.xml") == 2, calls_ui)
+apk_rollout._shell = fake_dump_shell(["ERROR: could not get idle state."] * 4)
+try:
+    apk_rollout.dump_ui("/fake/adb", "R58")
+    check("dauerhaft unlesbar -> klare Meldung statt alter Datei", False)
+except apk_rollout.RolloutError as e:
+    check("dauerhaft unlesbar -> klare Meldung statt alter Datei", "idle state" in str(e))
+
 print("Original installieren")
 STAGE = Path(tempfile.mkdtemp())
 apk_rollout.STAGE_DIR = STAGE
