@@ -371,6 +371,7 @@ def cmd_commands(rest: Rest, namespace) -> int:
     print("Eingreifend (brauchen remote_allow_actions):")
     print("          sync  cleanup  set  customer-stats  bot  rustdesk  update")
     print("          apk-fetch release=<name>   apk-original serial=<s> release=<name>")
+    print("          ui serial=<s> action=open|tap|scroll|back|home [text=<t>] [index=<n>]")
     print()
     print("Beispiele:")
     print("  macctl.py mac07 diag-upload")

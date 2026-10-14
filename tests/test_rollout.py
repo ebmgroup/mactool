@@ -43,6 +43,24 @@ ui = '<hierarchy><node text="Update" resource-id="com.applisto.appcloner:id/btn"
 nodes = apk_rollout.parse_ui(ui)
 check("UI-Abbild: nur ansprechbare Elemente", len(nodes) == 1 and nodes[0]["text"] == "Update" and nodes[0]["click"], nodes)
 
+els = [{"text": "Update", "bounds": "[0,0][10,10]"}, {"text": "Update", "bounds": "[0,20][10,30]"},
+       {"text": "Instagram", "bounds": "[0,40][100,60]"}]
+check("tap: eindeutiger Treffer", apk_rollout.find_element(els, text="Instagram")["bounds"] == "[0,40][100,60]")
+for kwargs, name in (({"text": "Update"}, "mehrdeutig"), ({"text": "Löschen"}, "fehlt")):
+    try:
+        apk_rollout.find_element(els, **kwargs)
+        check(f"tap {name} -> nichts getippt", False)
+    except apk_rollout.RolloutError:
+        check(f"tap {name} -> nichts getippt", True)
+check("tap mehrdeutig mit index", apk_rollout.find_element(els, text="Update", index=1)["bounds"] == "[0,20][10,30]")
+check("Mitte der Bounds", apk_rollout._center("[0,40][100,60]") == (50, 50))
+check("ui ist eingreifend", remote_commands.HANDLERS["ui"][1] is True)
+try:
+    apk_rollout.ui("R58", {"action": "rm"})
+    check("unbekannte Aktion abgelehnt", False)
+except apk_rollout.RolloutError:
+    check("unbekannte Aktion abgelehnt", True)
+
 print("Original installieren")
 STAGE = Path(tempfile.mkdtemp())
 apk_rollout.STAGE_DIR = STAGE
@@ -102,7 +120,7 @@ out, st = scenario({"version_code": 449, "signature": "12f09072", "system": True
 check("anderer Fehler -> nichts entfernt, ehrlich gemeldet",
       st["shell"] == [] and "NICHT" in out["verdict"] and "STORAGE" in out["verdict"], (st, out["verdict"]))
 
-out, st = scenario({"version_code": 445, "signature": "43c4b509", "system": True}, [])
+out, st = scenario({"version_code": 445, "signature": "12f09072", "system": True}, [])
 check("schon auf Stand -> gar nichts", st["installs"] == 0 and st["shell"] == [], (st, out))
 
 out, st = scenario({"version_code": 449, "signature": "12f09072", "system": False},

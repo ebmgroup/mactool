@@ -195,6 +195,13 @@ def _cmd_screen(args: dict) -> dict:
 # ── Eingreifende Befehle (brauchen remote_allow_actions) ──────────────
 
 
+def _cmd_ui(args: dict) -> dict:
+    """App Cloner bedienen auf GENAU EINEM Handy: open, tap text=…, scroll, back, home."""
+    import apk_rollout
+
+    return _rollout(lambda: apk_rollout.ui(apk_rollout._single_serial(args), args))
+
+
 def _cmd_apk_fetch(args: dict) -> dict:
     """Release aus dem Bucket apk holen und prüfen (schreibt nur auf dem Mac)."""
     import apk_rollout
@@ -541,6 +548,7 @@ HANDLERS: dict[str, tuple] = {
     "archive-cleanup": (_cmd_archive_cleanup, True),
     "apk-fetch": (_cmd_apk_fetch, True),
     "apk-original": (_cmd_apk_original, True),
+    "ui": (_cmd_ui, True),
 }
 
 # Befehle, nach denen sich der Prozess selbst beendet — das Ergebnis muss

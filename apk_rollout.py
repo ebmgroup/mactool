@@ -228,7 +228,9 @@ def install_original(serial: str, release: str) -> dict:
 
     before = read_phone(adb, serial)["packages"].get(ORIGINAL)
     steps = []
-    if before and before.get("version_code") == meta["version_code"] and before.get("signature") == meta["signature"]:
+    # Nur die Version zählt: Meta signiert mit Schlüssel-Rotation (v3), das Handy zeigt
+    # danach eine andere Kennung als die erste im Paket (445 auf 428: 43c4b509 -> 12f09072).
+    if before and before.get("version_code") == meta["version_code"]:
         return {"serial": serial, "verdict": "schon auf diesem Stand, nichts getan", "before": before}
 
     result = _install(adb, serial, apks)
@@ -248,7 +250,7 @@ def install_original(serial: str, release: str) -> dict:
             f"OK: Original jetzt {after.get('version_name')}" if ok
             else f"NICHT aktualisiert — letzter Schritt: {result}"
         ),
-        "target": {k: meta[k] for k in ("version_name", "version_code", "signature")},
+        "target": {k: meta[k] for k in ("version_name", "version_code")},
         "before": before,
         "steps": steps,
         "after": after,
@@ -302,4 +304,69 @@ def screen(serial: str, picture: bool = True) -> dict:
                 path, jpg.read_bytes(), file_options={"content-type": "image/jpeg", "x-upsert": "true"}
             )
             result["picture"] = f"{BUCKET}/{path}"
+    return result
+
+
+# ── App Cloner bedienen ───────────────────────────────────────────────
+
+APP_CLONER = "com.applisto.appcloner"
+
+
+def _center(bounds: str) -> tuple[int, int]:
+    x1, y1, x2, y2 = map(int, re.findall(r"\d+", bounds))
+    return (x1 + x2) // 2, (y1 + y2) // 2
+
+
+def find_element(elements: list[dict], text: str | None = None, desc: str | None = None,
+                 rid: str | None = None, index: int | None = None) -> dict:
+    """Genau ein Element nach Text / Beschreibung / Resource-ID — sonst Abbruch."""
+    hits = [
+        e for e in elements
+        if (text is None or e.get("text") == text)
+        and (desc is None or e.get("desc") == desc)
+        and (rid is None or e.get("id") == rid)
+    ]
+    if index is not None and 0 <= index < len(hits):
+        return hits[index]
+    if len(hits) != 1:
+        raise RolloutError(
+            f"{len(hits)} Treffer für text={text!r} desc={desc!r} id={rid!r} — "
+            "nichts getippt" + (" (index=<n> wählt einen)" if hits else "")
+        )
+    return hits[0]
+
+
+def ui(serial: str, args: dict) -> dict:
+    """Eine Bedienaktion auf genau einem Handy, danach der neue Bildschirm.
+
+    open   — startet ausschließlich den App Cloner
+    tap    — tippt ein Element, das im aktuellen Abbild eindeutig gefunden wird
+    scroll — dir=down|up;  back / home — Systemtasten
+    """
+    action = str(args.get("action") or "")
+    if action not in ("open", "tap", "scroll", "back", "home"):
+        raise RolloutError("action muss open, tap, scroll, back oder home sein")
+    adb = _adb()
+    done = action
+    if action == "open":
+        _shell(adb, serial, "monkey", "-p", APP_CLONER, "-c", "android.intent.category.LAUNCHER", "1")
+    elif action == "tap":
+        current = screen(serial, picture=False)["elements"]
+        index = args.get("index")
+        element = find_element(current, args.get("text"), args.get("desc"), args.get("id"),
+                               int(index) if index is not None else None)
+        x, y = _center(element["bounds"])
+        _shell(adb, serial, "input", "tap", str(x), str(y))
+        done = f"tap {element.get('text') or element.get('desc') or element.get('id')} @ {x},{y}"
+    elif action == "scroll":
+        down = str(args.get("dir") or "down") == "down"
+        _shell(adb, serial, "input", "swipe", "360", "1200" if down else "500", "360", "500" if down else "1200", "400")
+    elif action == "back":
+        _shell(adb, serial, "input", "keyevent", "4")
+    else:  # home
+        _shell(adb, serial, "input", "keyevent", "3")
+
+    time.sleep(float(args.get("wait") or 2))
+    result = screen(serial, picture=str(args.get("bild", "true")).lower() != "false")
+    result["done"] = done
     return result

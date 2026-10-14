@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.0.131 — 2026-10-14
+- `ui serial=<s> action=open|tap|scroll|back|home`: App Cloner auf **einem** Handy bedienen.
+  `open` startet ausschließlich den App Cloner; `tap` tippt nur ein Element, das im aktuellen
+  Bildschirm-Abbild eindeutig per `text=`/`desc=`/`id=` gefunden wird (`index=` bei
+  mehreren). Danach kommt der neue Bildschirm zurück
+- `apk-original` vergleicht nur noch die Version, nicht die Signatur: Meta rotiert Schlüssel
+  (v3), das Handy zeigt danach eine andere Kennung als die im Paket
+
 ## v1.0.130 — 2026-10-14
 - **Instagram-Rollout, Teil 1** (`apk_rollout.py`):
   - `apk-fetch release=<name>`: holt ein Release aus dem privaten Bucket `apk` (in Teilen
