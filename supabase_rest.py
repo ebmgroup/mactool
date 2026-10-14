@@ -334,6 +334,12 @@ class SupabaseRest:
             return []
         return rows if isinstance(rows, list) else [rows]
 
+    def delete(self, table: str, params: dict) -> None:
+        """DELETE rows matching `params` (PostgREST filters — never call without one)."""
+        if not params:
+            raise ValueError("delete ohne Filter verweigert")
+        self._request("DELETE", f"{self.base}/{table}", params=params)
+
     # ── Writes ────────────────────────────────────────────────────────
 
     def _write_batch(

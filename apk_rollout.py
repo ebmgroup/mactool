@@ -331,6 +331,8 @@ def parse_ui(xml: str) -> list[dict]:
                 node[key] = value
         if clickable:
             node["click"] = True
+        if attrs.get("checkable") == "true":
+            node["checked"] = attrs.get("checked") == "true"
         nodes.append(node)
     return nodes
 

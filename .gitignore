@@ -35,3 +35,4 @@ sync_test.log
 
 archive_state.json
 apk_stage/
+supabase/.temp/

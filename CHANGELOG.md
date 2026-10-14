@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.0.138 — 2026-10-14
+- **IG Versionen** (Steuerpult im Dashboard unter /growth/ig-versionen):
+  - `ig_worker.py`, eigener Scheduler-Job jede Minute (nicht die Befehlsqueue — ein ganzer Mac
+    dauert Stunden): meldet den Handy-Bestand nach `ig_phones` (alle 30 min und nach jedem
+    Handy) und arbeitet `ig_update_jobs` ab. Je Handy: warten bis der Bot Instagram nicht im
+    Vordergrund hat, Original zuerst, dann jede veraltete Kopie. Handy für Handy. Abbruch aus
+    dem Dashboard greift zwischen den Schritten
+  - `app_cloner.py`: der App-Cloner-Ablauf „Update clone“ wie von Hand, nur eindeutige
+    Elemente, bestätigt im Android-Installer ausschließlich die **Update**-Frage (bei
+    „neu installieren“ Abbruch), unerwarteter Bildschirm = Abbruch mit Screenshot
+  - Schalter `ig_worker_enabled` (ab Werk an); Schema `tools/schema_ig.sql`
+- `apps` meldet zusätzlich die Systemsprache (`locale`); Bildschirm-Abbild kennt `checked`
+
 ## v1.0.137 — 2026-10-14
 - Fix `apk-fetch`: bei einer einzelnen `.apk` wurde die gerade geladene Datei als „alte APK“
   gelöscht. Aufräumen jetzt vor dem Laden

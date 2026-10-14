@@ -30,6 +30,7 @@ PROPS = {
     "ro.build.version.sdk": "sdk",
     "ro.product.cpu.abilist": "abis",
     "ro.miui.ui.version.name": "miui",
+    "persist.sys.locale": "locale",
     # Xiaomi: "Über USB installieren". Ohne den Schalter lehnt MIUI adb install ab.
     "persist.security.adbinstall": "usb_install",
 }

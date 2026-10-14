@@ -1,3 +1,31 @@
+# IG Versionen — Dashboard-Steuerpult + automatische Updates (ab v1.0.138)
+
+Auftrag (Andreas, 14.10.): Menuepunkt "IG Versionen" unter /growth/. Admins/Superadmins laden
+APKs hoch und markieren eine als Standard. Pro Mac alle Phones (Name, Device-ID, Version je
+Clone): Standard = gruen, aelter = rot + Update-Button. Buttons: je App, je Phone (alle Clones),
+je Mac (alles). Updates darf jeder MA ausloesen. Ausfuehrung ueber das MacTool.
+
+## Architektur
+- Kontroll-DB `fxreaveeihaawkusmybi` (dort reden die Macs): Tabellen `ig_versions`,
+  `ig_phones`, `ig_update_jobs` (tools/schema_ig.sql). RLS an, ohne Policy.
+- Edge Function `ig-versionen` im Kontroll-Projekt (Code im mactool-Repo): prueft den
+  Dashboard-Login (JWT der Haupt-DB) + Rolle aus `user_roles`; schreibt mit Service-Key.
+  Upload: Function vergibt signierte Upload-URLs je 40-MB-Teil (Bucket `apk`), Browser laedt
+  direkt, Function schliesst ab (manifest.json + Zeile in ig_versions).
+- Mac: eigener Hintergrund-Job `ig_worker` (nicht die Befehlsqueue — ein Mac-Update dauert
+  Stunden): meldet Bestand nach `ig_phones` (alle 30 min + nach jedem Auftrag), arbeitet
+  `ig_update_jobs` ab — Handy fuer Handy, Original zuerst, dann App Cloner je Kopie.
+- Dashboard: Seite /growth/ig-versionen, Menuepunkt in BOARD_MENU.growth, PR nach `beta`.
+
+## Schritte
+- [ ] schema_ig.sql + einspielen
+- [ ] Mac: clone_update (App-Cloner-Ablauf), ig_worker, Scheduler, Tests
+- [ ] Edge Function + Deploy + Secrets
+- [ ] Dashboard-Seite, APK-Pruefung im Browser, Tests, PR nach beta
+- [ ] mac17 ausrollen, Ende-zu-Ende-Test auf 428, dann alle Macs
+
+---
+
 # Instagram-Rollout auf die Handys — Plan (ab v1.0.129)
 
 Ziel: Eine bereitgestellte Instagram-Version samt App-Cloner-Kopien per adb auf alle

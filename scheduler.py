@@ -12,6 +12,7 @@ from device_monitor import run_device_monitor_job
 from bot_manager import run_bot_manager_job
 from rustdesk_manager import run_rustdesk_manager_job
 from remote_agent import run_remote_agent_job
+from ig_worker import run_ig_worker_job
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +165,23 @@ class SchedulerManager:
 
         logger.info("Remote agent job registered")
 
+    def _register_ig_worker_job(self):
+        """IG Versionen: Bestand melden, Update-Aufträge abarbeiten (jede Minute)."""
+        if not get_config().ig_worker_enabled:
+            logger.info("IG-Worker ist ausgeschaltet")
+            return
+        self.scheduler.add_job(
+            run_ig_worker_job,
+            trigger=IntervalTrigger(seconds=60),
+            id="ig_worker",
+            name="IG Versionen (jede Minute)",
+            replace_existing=True,
+            # Ein Auftrag für einen ganzen Mac läuft Stunden — nie doppelt
+            max_instances=1,
+            coalesce=True,
+        )
+        logger.info("IG worker job registered")
+
     def register_jobs(self):
         """Register all scheduled jobs."""
         if self._jobs_registered:
@@ -175,6 +193,7 @@ class SchedulerManager:
         self._register_bot_manager_job()
         self._register_rustdesk_manager_job()
         self._register_remote_agent_job()
+        self._register_ig_worker_job()
 
         self._jobs_registered = True
         logger.info("All jobs registered")

@@ -112,6 +112,10 @@ class AppConfig:
     # dann abgelehnt, Status und Diagnose laufen weiter.
     remote_allow_actions: bool = True
     remote_poll_seconds: int = 15
+
+    # IG Versionen: Bestand der Handys melden + Update-Aufträge aus dem Dashboard
+    # abarbeiten (ig_worker.py). Ab Werk an — sonst müsste jeder Mac angefasst werden.
+    ig_worker_enabled: bool = True
     remote_commands_table: str = "mac_commands"
     remote_agents_table: str = "mac_agents"
 
