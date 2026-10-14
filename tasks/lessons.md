@@ -23,3 +23,11 @@
   Erklaerungen meinerseits ("Geister-Fenster").
 - Regel: Ausgabedateien vor dem Erzeugen loeschen und den Erfolg pruefen. Bei Raetseln zuerst
   das Systemprotokoll (`phone-log`) lesen, bevor eine Ursache behauptet wird.
+
+## MacTool nie mitten in einen IG-Auftrag hinein aktualisieren (2026-10-14)
+- Fehler: v1.0.145 auf alle Macs verteilt, waehrend Andreas' "Mac updaten" (#7) auf mac17 lief.
+  Die Abfrage hatte den offenen Auftrag gezaehlt, die Befehlskette lief trotzdem weiter.
+  Der Neustart unterbrach Phone 2/20 bei 99 % (nichts kaputt, aber Lauf weg).
+- Regel: Vor jedem `macctl.py … update` offene ig_update_jobs pruefen und bei > 0 HART
+  abbrechen (`[ "$open" != "0" ] && exit 1`), nicht nur anzeigen. Betroffene Macs auslassen
+  oder Andreas fragen.
