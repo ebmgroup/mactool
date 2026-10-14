@@ -176,6 +176,7 @@ def fake_dump_shell(outputs):
 
 
 apk_rollout.time.sleep = lambda s: None
+apk_rollout._dump_via_u2 = lambda adb, serial: None
 apk_rollout._shell = fake_dump_shell(["ERROR: could not get idle state.", "UI hierchary dumped to: /data/local/tmp/mactool_ui.xml"])
 xml = apk_rollout.dump_ui("/fake/adb", "R58")
 check("Fehlschlag -> neu versucht, alte Datei vorher gelöscht",
@@ -186,6 +187,11 @@ try:
     check("dauerhaft unlesbar -> klare Meldung statt alter Datei", False)
 except apk_rollout.RolloutError as e:
     check("dauerhaft unlesbar -> klare Meldung statt alter Datei", "idle state" in str(e))
+
+apk_rollout._shell = fake_dump_shell(["Error: UiAutomationService already registered!"] * 4)
+apk_rollout._dump_via_u2 = lambda adb, serial: "<hierarchy><node text='vom Bot-Dienst' bounds='[0,0][1,1]'/></hierarchy>"
+check("Bot hält uiautomator -> Abbild über dessen uiautomator2-Dienst",
+      "vom Bot-Dienst" in apk_rollout.dump_ui("/fake/adb", "R58"))
 
 print("Original installieren")
 STAGE = Path(tempfile.mkdtemp())

@@ -356,8 +356,42 @@ def dump_ui(adb: str, serial: str, attempts: int = 4) -> str:
             xml = _shell(adb, serial, "cat", UI_DUMP)
             if "<hierarchy" in xml:
                 return xml
+        # Der Bot hält mit uiautomator2 (com.github.uiautomator) die einzige
+        # UiAutomation-Verbindung ("already registered", 428 am 14.10.) — dann fragen
+        # wir dessen eigenen Dienst, rein lesend.
+        xml = _dump_via_u2(adb, serial)
+        if xml:
+            return xml
         time.sleep(2)
     raise RolloutError(f"Bildschirm nicht lesbar (uiautomator): {last[-200:] or 'keine Ausgabe'}")
+
+
+U2_PORT = 9008
+
+
+def _dump_via_u2(adb: str, serial: str) -> str | None:
+    """Abbild über den uiautomator2-Dienst des Bots (JSON-RPC auf dem Handy, Port 9008)."""
+    import requests
+
+    forward = subprocess.run([adb, "-s", serial, "forward", "tcp:0", f"tcp:{U2_PORT}"],
+                             capture_output=True, text=True, timeout=15)
+    port = (forward.stdout or "").strip()
+    if not port.isdigit():
+        return None
+    try:
+        response = requests.post(
+            f"http://127.0.0.1:{port}/jsonrpc/0",
+            json={"jsonrpc": "2.0", "id": 1, "method": "dumpWindowHierarchy", "params": [False, 50]},
+            timeout=30,
+        )
+        xml = response.json().get("result")
+        return xml if isinstance(xml, str) and "<hierarchy" in xml else None
+    except Exception as e:
+        logger.debug(f"uiautomator2-Abbild auf {serial} nicht möglich: {e}")
+        return None
+    finally:
+        subprocess.run([adb, "-s", serial, "forward", "--remove", f"tcp:{port}"],
+                       capture_output=True, timeout=15)
 
 
 def screen(serial: str, picture: bool = True) -> dict:

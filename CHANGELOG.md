@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.0.142 — 2026-10-14
+- Bildschirm-Abbild auch während der Bot `uiautomator2` hält („UiAutomationService already
+  registered“): dann über dessen JSON-RPC-Dienst (Port 9008, `dumpWindowHierarchy`), rein lesend
+
 ## v1.0.141 — 2026-10-14
 - **Bildschirm-Abbild nie veraltet:** scheiterte `uiautomator dump` („could not get idle state“),
   wurde bisher die alte Datei gelesen — auf 428 stundenlang ein längst verschwundenes
