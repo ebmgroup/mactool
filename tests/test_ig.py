@@ -174,6 +174,17 @@ c2 = app_cloner.Cloner("R58")
 pick = c2.nearest_below(c2.find(ASK_UPDATE_TWO, ids=(PI + "button1",)), ASK_UPDATE_TWO[0])
 check("zwei verschiedene -> der direkt unter der Frage", pick["bounds"] == "[549,850][679,918]", pick)
 
+print("Reste eines unterbrochenen Laufs werden weggeräumt")
+STALE = [el("App cloned"), el("Instagram was cloned."),
+         el("CANCEL", "[301,904][445,1005]", click=True, id="android:id/button2"),
+         el("INSTALL APP", "[445,904][637,1005]", click=True, id="android:id/button1")]
+phone = Phone([CLONING, STALE, CLONED, DIALOG, CLONED_OK, ASK_UPDATE, INSTALLING],
+              {"com.instagram.androih": OLD}, after_install={"com.instagram.androih": T})
+install(phone)
+out = app_cloner.Cloner("R58").update_clone("com.instagram.androih", T)
+check("laufenden Klon abgewartet, alten Dialog abgebrochen, dann normal",
+      out["result"] == "aktualisiert" and phone.taps[0] == "CANCEL" and phone.taps[1] == "UPDATE", phone.taps)
+
 print("Schon aktuell")
 phone = Phone([MAIN], {"com.instagram.androih": T})
 install(phone)

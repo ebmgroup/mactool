@@ -168,7 +168,7 @@ class Cloner:
         self.key(3)  # Home: kein halber Zustand von vorher
         time.sleep(1)
         _shell(self.adb, self.serial, "monkey", "-p", APP_CLONER, "-c", "android.intent.category.LAUNCHER", "1")
-        for _ in range(6):
+        for _ in range(40):   # großzügig: ein früherer Klonvorgang kann noch Minuten laufen
             time.sleep(3)
             els = self.elements()
             # "This app was built for an older version of Android" -> OK
@@ -176,6 +176,20 @@ class Cloner:
             ok = self.find(els, ids=("android:id/button1",))
             if old_sdk and ok:
                 self.tap(ok[0], "OK (Hinweis altes Android)")
+                continue
+            # Reste eines unterbrochenen Laufs (446 auf mac08, 15.10.): ein Klon wurde im
+            # Hintergrund fertig gebaut, der Dialog "App cloned / INSTALL APP" steht noch.
+            # Welche Kopie dahinter steckt, ist nicht sicher erkennbar -> abbrechen, sie wird
+            # neu gebaut. Ebenso ein offener "Update clone"-Dialog. Läuft noch ein Klonvorgang,
+            # erst abwarten.
+            if self.find(els, texts=("Cloning Instagram",)):
+                self.progress("früherer Klonvorgang läuft noch — warte")
+                time.sleep(POLL)
+                continue
+            stale = self.find(els, texts=APP_CLONED) or self.find(els, texts=("Update clone", "Klon aktualisieren"))
+            cancel = self.find(els, ids=("android:id/button2",))
+            if stale and cancel:
+                self.tap(cancel[0], "Abbrechen (Dialog eines früheren Laufs)")
                 continue
             # Der App Cloner merkt sich den letzten Reiter — oft ist man schon da
             if self.pending_header(els):

@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.0.148 — 2026-10-15
+- App Cloner: Reste eines unterbrochenen Laufs wegräumen — „App cloned / INSTALL APP“ oder
+  „Update clone“ von früher abbrechen, laufenden Klonvorgang erst abwarten (446 auf mac08)
+
 ## v1.0.147 — 2026-10-15
 - App Cloner: Phone vor jedem Bildschirm-Abbild wecken (`KEYCODE_WAKEUP`) und einfachen
   Sperrbildschirm entfernen. Ein Phone ohne Bot-Accounts ging während des Klonens schlafen
