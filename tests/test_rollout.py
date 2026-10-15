@@ -72,6 +72,15 @@ for path, pkg, name in (("/data/x.apk", "com.instagram.androie", "Pfad außerhal
     except apk_rollout.RolloutError:
         check(f"clone-install lehnt ab: {name}", True)
 check("clone-install ist eingreifend", remote_commands.HANDLERS["clone-install"][1] is True)
+for bad in ("/v1/devices", "/api/../v1", "http://evil/api/x", ""):
+    try:
+        remote_commands._cmd_bot_local({"path": bad})
+        check(f"bot-local lehnt {bad!r} ab", False)
+    except remote_commands.CommandError:
+        check(f"bot-local lehnt {bad!r} ab", True)
+check("bot-local ist lesend", remote_commands.HANDLERS["bot-local"][1] is False)
+import config as _cfg
+check("bot_admin_token ist geheim (nicht per set, maskiert)", "bot_admin_token" in _cfg.SECRET_FIELDS)
 check("phone-apks ist lesend", remote_commands.HANDLERS["phone-apks"][1] is False)
 
 import struct, io

@@ -23,6 +23,7 @@ SECRET_FIELDS = frozenset(
         "customer_users_key",
         "alert_smtp_password",
         "webhook_url",
+        "bot_admin_token",
     }
 )
 
@@ -119,6 +120,9 @@ class AppConfig:
     # Wie viele Phones ein Mac gleichzeitig aktualisiert (alle IG-Aufträge zusammen).
     # Aus der Ferne: macctl.py mac04 set ig_parallel_phones=3
     ig_parallel_phones: int = 5
+    # Admin-Token der Bot-App (lokale Schnittstelle, X-Admin-Key). Geheim: nur per Dashboard
+    # setzen, nie über den Fernzugriff (SECRET_FIELDS).
+    bot_admin_token: str = ""
     remote_commands_table: str = "mac_commands"
     remote_agents_table: str = "mac_agents"
 

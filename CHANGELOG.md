@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.0.150 — 2026-10-15
+- Neuer lesender Befehl `bot-local path=/api/…|/ui/…`: GET an die lokale Schnittstelle der
+  Bot-App (127.0.0.1:8765) — Erkundung, ob das MacTool Accounts einzeln steuern kann
+- Neues geheimes Feld `bot_admin_token` (nur per Dashboard, nie per `set`)
+
 ## v1.0.149 — 2026-10-15
 - App Cloner: Installer-Knöpfe auch als `android:id/button1|2` erkennen — so heißen sie auf
   Android 13 (446 auf mac08; auch der Abbruch auf mac17/R58WB00BR3F am 14.10.). Die Vermutung

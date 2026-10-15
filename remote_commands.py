@@ -8,6 +8,7 @@ Die Handler sind absichtlich dünn: sie rufen denselben Code auf, den das Dashbo
 schon benutzt. So kann die Ferndiagnose nicht etwas anderes tun als der Knopf.
 """
 
+import json
 import logging
 import re
 from datetime import datetime
@@ -206,6 +207,37 @@ def _cmd_phone_apks(args: dict) -> dict:
     import apk_rollout
 
     return _rollout(lambda: apk_rollout.phone_apks(apk_rollout._single_serial(args)))
+
+
+BOT_LOCAL = "http://127.0.0.1:8765"
+
+
+def _cmd_bot_local(args: dict) -> dict:
+    """Lokale Schnittstelle der Bot-App lesen (nur GET, nur /api/… und /ui/…).
+
+    Die Bot-App ("Instagram Bot Local Bridge", Port 8765) beantwortet /api/* und /ui/* nur
+    vom Mac selbst — hier läuft das MacTool. Erkundung, ob und wie wir herankommen; schreibt
+    nichts. Optional `admin=true`: den Admin-Token aus `bot_admin_token` (config) mitschicken.
+    """
+    import requests
+
+    path = str(args.get("path") or "")
+    if not path.startswith(("/api/", "/ui/")) or ".." in path or "://" in path:
+        raise CommandError("path muss mit /api/ oder /ui/ beginnen")
+    headers = {"Accept": "application/json"}
+    if str(args.get("admin", "")).lower() == "true":
+        token = getattr(get_config(), "bot_admin_token", "") or ""
+        if not token:
+            raise CommandError("bot_admin_token ist nicht gesetzt")
+        headers["X-Admin-Key"] = token
+    response = requests.get(BOT_LOCAL + path, headers=headers, timeout=20)
+    try:
+        body = response.json()
+    except ValueError:
+        body = response.text[:2000]
+    text = json.dumps(body, ensure_ascii=False)
+    return {"status": response.status_code, "path": path,
+            "body": body if len(text) <= 60000 else text[:60000] + " …(gekürzt)"}
 
 
 # ── Eingreifende Befehle (brauchen remote_allow_actions) ──────────────
@@ -563,6 +595,7 @@ HANDLERS: dict[str, tuple] = {
     "screen": (_cmd_screen, False),
     "phone-log": (_cmd_phone_log, False),
     "phone-apks": (_cmd_phone_apks, False),
+    "bot-local": (_cmd_bot_local, False),
     "warnings": (_cmd_warnings, False),
     "warning-text": (_cmd_warning_text, False),
     "warning-part": (_cmd_warning_part, False),
