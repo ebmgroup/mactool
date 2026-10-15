@@ -37,6 +37,10 @@ TAB_CLONED_APPS = ("CLONED APPS", "GEKLONTE APPS")
 APP_CLONED = ("App cloned", "App geklont")
 INSTALL_APP = ("INSTALL APP", "APP INSTALLIEREN")
 INSTALL_ANYWAY = ("Install anyway", "Trotzdem installieren")
+# Knöpfe des Android-Installers: Android 14 (428 auf mac17) nutzt die Paket-IDs, Android 13
+# (446 auf mac08, R58WB00BR3F auf mac17) die allgemeinen android:id/button1|2.
+INSTALLER_OK = ("com.android.packageinstaller:id/button1", "android:id/button1")
+INSTALLER_CANCEL = ("com.android.packageinstaller:id/button2", "android:id/button2")
 ERROR_RE = re.compile(r"\b(error|failed|fehler|fehlgeschlagen)\b", re.IGNORECASE)
 
 
@@ -292,14 +296,14 @@ class Cloner:
             els = self.elements()
             question = self.find(els, ids=("com.android.packageinstaller:id/install_confirm_question_update",))
             if question:
-                update = self.find(els, ids=("com.android.packageinstaller:id/button1",))
+                update = self.find(els, ids=INSTALLER_OK)
                 button = update[0] if len(update) == 1 else self.nearest_below(update, question[0])
                 if button is None:
                     self.fail(f"Update-Knopf des Installers nicht gefunden ({len(update)} Kandidaten)")
                 self.tap(button, "Update (Android-Installer)")
                 break
             if self.find(els, ids=("com.android.packageinstaller:id/install_confirm_question",)):
-                cancel = self.find(els, ids=("com.android.packageinstaller:id/button2",))
+                cancel = self.find(els, ids=INSTALLER_CANCEL)
                 if cancel:
                     self.tap(cancel[0], "Abbrechen (wäre eine Neuinstallation)")
                 self.fail("Android wollte die Kopie NEU installieren statt zu aktualisieren — abgebrochen")
@@ -321,7 +325,7 @@ class Cloner:
             failed = [e for e in els if "install_failed" in (e.get("id") or "")]
             if failed:
                 message = _plain(failed[0].get("text"))
-                done = self.find(els, ids=("com.android.packageinstaller:id/button1",))
+                done = self.find(els, ids=INSTALLER_OK)
                 if done:
                     self.tap(done[0], "Done")
                 raise RolloutError(f"Android hat das Update abgelehnt: {message}")

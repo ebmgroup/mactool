@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.0.149 — 2026-10-15
+- App Cloner: Installer-Knöpfe auch als `android:id/button1|2` erkennen — so heißen sie auf
+  Android 13 (446 auf mac08; auch der Abbruch auf mac17/R58WB00BR3F am 14.10.). Die Vermutung
+  „doppelter Knopf“ aus v1.0.146 war nicht die Ursache
+
 ## v1.0.148 — 2026-10-15
 - App Cloner: Reste eines unterbrochenen Laufs wegräumen — „App cloned / INSTALL APP“ oder
   „Update clone“ von früher abbrechen, laufenden Klonvorgang erst abwarten (446 auf mac08)

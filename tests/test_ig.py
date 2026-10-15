@@ -105,7 +105,7 @@ class Phone:
             x, y = map(int, line.split()[2:4])
             hit = next((e for e in self.current() if e.get("click") and apk_rollout._center(e["bounds"]) == (x, y)), None)
             self.taps.append((hit or {}).get("text") or (hit or {}).get("desc"))
-            if hit and hit.get("id") == PI + "button1" and any(
+            if hit and hit.get("id") in (PI + "button1", "android:id/button1") and any(
                     e.get("id") == PI + "install_confirm_question_update" for e in self.current()):
                 self.versions.update(self.after_install)
             self.advance()
@@ -184,6 +184,17 @@ install(phone)
 out = app_cloner.Cloner("R58").update_clone("com.instagram.androih", T)
 check("laufenden Klon abgewartet, alten Dialog abgebrochen, dann normal",
       out["result"] == "aktualisiert" and phone.taps[0] == "CANCEL" and phone.taps[1] == "UPDATE", phone.taps)
+
+print("Android 13: Installer-Knöpfe heißen android:id/button1|2 (446 auf mac08)")
+ASK_UPDATE_A13 = [el("Instagram", id="android:id/alertTitle"),
+                  el("Do you want to update this app?", "[63,743][489,784]", id=PI + "install_confirm_question_update"),
+                  el("Cancel", "[63,829][357,897]", click=True, id="android:id/button2"),
+                  el("Update", "[359,829][657,897]", click=True, id="android:id/button1")]
+phone = Phone([CLONED, DIALOG, CLONED_OK, ASK_UPDATE_A13, INSTALLING],
+              {"com.instagram.androih": OLD}, after_install={"com.instagram.androih": T})
+install(phone)
+out = app_cloner.Cloner("R58").update_clone("com.instagram.androih", T)
+check("Update getippt", out["result"] == "aktualisiert" and phone.taps[-1] == "Update", phone.taps)
 
 print("Schon aktuell")
 phone = Phone([MAIN], {"com.instagram.androih": T})
