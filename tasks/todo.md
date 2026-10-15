@@ -3,15 +3,17 @@
 Belegt: einzelne Accounts lassen sich lokal stoppen/starten (bot-profile, Test mac08/ID 85).
 Gestoppt bleibt gestoppt; Instagram bleibt dabei im Vordergrund offen.
 
-- [ ] bot_local: Accounts eines Phones lesen (runState), Zeitfenster pruefen ("run manually" zaehlt)
-- [ ] AccountGuard je Phone: laufende stoppen, alle 10 s neu startende sofort stoppen, danach
+- [x] bot_local: Accounts eines Phones lesen (runState), Zeitfenster pruefen ("run manually" zaehlt)
+- [x] AccountGuard je Phone: laufende stoppen, alle 10 s neu startende sofort stoppen, danach
       die gestoppten wieder starten — nur wenn ihr Zeitfenster noch laeuft (oder "run manually")
-- [ ] gestoppte Accounts auf Platte merken (ig_stopped_accounts.json), nach Neustart nachholen
-- [ ] "Mac updaten": mit gueltigem Bot-Key -> AccountGuard statt Bot-Stopp; ohne -> wie bisher
-- [ ] mit Guard kein "Instagram vorne?"-Warten (Instagram bleibt nach Stopp offen) — Home vorher
-- [ ] Ergebnis je Phone: gestoppte/wieder gestartete Accounts im Auftrag
-- [ ] Dashboard: Rueckfrage "Mac updaten" textlich anpassen
-- [ ] Tests, nur mac08 ausrollen, Mac-Update mac08 starten und komplett begleiten
+- [x] gestoppte Accounts auf Platte merken (ig_stopped_accounts.json), nach Neustart nachholen
+- [x] "Mac updaten": mit gueltigem Bot-Key -> AccountGuard statt Bot-Stopp; ohne -> wie bisher
+- [x] mit Guard kein "Instagram vorne?"-Warten (Instagram bleibt nach Stopp offen) — Home vorher
+- [x] Ergebnis je Phone: gestoppte/wieder gestartete Accounts im Auftrag
+- [x] Dashboard: Rueckfrage "Mac updaten" textlich anpassen
+- [x] Tests, ausgerollt (alle 13), Mac-Update mac08 #14: 13/13 ohne Fehler (14:26–15:13)
+- [ ] Waechter im echten Lauf mit laufendem Account noch nicht gesehen
+- [ ] Bot-Key fuer die anderen 12 Macs im MacTool-Dashboard eintragen
 
 ---
 
