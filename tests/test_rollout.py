@@ -78,6 +78,13 @@ for bad in ("/v1/devices", "/api/../v1", "http://evil/api/x"):
         check(f"bot-local lehnt {bad!r} ab", False)
     except remote_commands.CommandError:
         check(f"bot-local lehnt {bad!r} ab", True)
+check("bot-profile ist eingreifend", remote_commands.HANDLERS["bot-profile"][1] is True)
+for bad_args in ({"profile": "232", "action": "delete"}, {"profile": "1,2", "action": "stop"}, {"profile": "", "action": "stop"}):
+    try:
+        remote_commands._cmd_bot_profile(bad_args)
+        check(f"bot-profile lehnt {bad_args} ab", False)
+    except remote_commands.CommandError:
+        check(f"bot-profile lehnt {bad_args} ab", True)
 check("bot-local ist lesend", remote_commands.HANDLERS["bot-local"][1] is False)
 import config as _cfg
 check("bot_admin_token ist geheim (nicht per set, maskiert)", "bot_admin_token" in _cfg.SECRET_FIELDS)

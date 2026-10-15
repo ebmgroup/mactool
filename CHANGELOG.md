@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.0.153 — 2026-10-15
+- `bot-profile profile=<id> action=stop|start|restart`: genau EINEN Account der Bot-App über die
+  lokale Schnittstelle steuern, mit Zustand vorher/nachher (Test für „Mac updaten“ ohne Bot-Stopp)
+
 ## v1.0.152 — 2026-10-15
 - Bot-App-Abschnitt: Knopf „Speichern & testen“ — vorher testete „Verbindung testen“ nur den
   gespeicherten Wert, ein eingetipptes Token wurde erst mit dem allgemeinen Speichern übernommen

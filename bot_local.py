@@ -6,7 +6,7 @@ in der Bot-App unter API Gateway -> Admin token). Es wird nur im MacTool-Dashboa
 Macs eingetragen (config `bot_admin_token`, geheim — nie über den Fernzugriff).
 
 Ziel: bei "Mac updaten" nur die betroffenen Accounts anhalten statt die ganze Bot-App
-(POST /api/profiles/{id}/stop|start). Dieses Modul kann bisher NUR LESEN.
+(POST /api/profiles/{id}/stop|start). Lesen + genau diese drei Aktionen je EIN Account.
 """
 
 import logging
@@ -69,3 +69,34 @@ def test_connection(token: str | None = None) -> dict:
     return {"ok": False, "reachable": True, "tried": tried,
             "message": "Admin-Token wird nicht angenommen (" +
                        ", ".join(f"{h}: HTTP {s}" for h, s in tried.items()) + ")"}
+
+
+PROFILE_ACTIONS = ("stop", "start", "restart")
+
+
+def profile(profile_id: str, token: str | None = None) -> dict:
+    """Ein Account: runState, currentAction, Gerät, Kopie, Zeitfenster."""
+    token = token if token is not None else (get_config().bot_admin_token or "")
+    status, body = get(f"/api/profiles/{profile_id}", token)
+    if status != 200 or not isinstance(body, dict):
+        raise BotLocalError(f"Account {profile_id} nicht lesbar (HTTP {status})")
+    p = body.get("profile", body)
+    return {k: p.get(k) for k in ("id", "username", "deviceId", "apkCloner", "runState",
+                                  "currentAction", "sessionStatus", "sessionTime", "timeSlot", "scheduled")}
+
+
+def profile_action(profile_id: str, action: str) -> dict:
+    """Genau EINEN Account stoppen / starten / neu starten. Vorher und nachher lesen."""
+    if action not in PROFILE_ACTIONS:
+        raise BotLocalError(f"action muss {', '.join(PROFILE_ACTIONS)} sein")
+    if not str(profile_id).isdigit():
+        raise BotLocalError("profile muss eine Account-ID (Zahl) sein")
+    token = get_config().bot_admin_token or ""
+    if not token:
+        raise BotLocalError("bot_admin_token ist nicht gesetzt")
+    before = profile(profile_id, token)
+    response = requests.post(f"{BASE}/api/profiles/{profile_id}/{action}",
+                             headers={"Accept": "application/json", "X-API-Key": token}, timeout=60)
+    logger.info(f"Bot-App: Account {profile_id} ({before.get('username')}) {action} -> HTTP {response.status_code}")
+    return {"action": action, "status": response.status_code, "response": _body(response),
+            "before": before, "after": profile(profile_id, token)}

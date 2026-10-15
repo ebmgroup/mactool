@@ -248,6 +248,16 @@ def _cmd_ui(args: dict) -> dict:
     return _rollout(lambda: apk_rollout.ui(apk_rollout._single_serial(args), args))
 
 
+def _cmd_bot_profile(args: dict) -> dict:
+    """Genau EINEN Account der Bot-App stoppen / starten / neu starten (lokale Schnittstelle)."""
+    import bot_local
+
+    try:
+        return bot_local.profile_action(str(args.get("profile") or ""), str(args.get("action") or ""))
+    except bot_local.BotLocalError as e:
+        raise CommandError(str(e)) from e
+
+
 def _cmd_apk_fetch(args: dict) -> dict:
     """Release aus dem Bucket apk holen und prüfen (schreibt nur auf dem Mac)."""
     import apk_rollout
@@ -602,6 +612,7 @@ HANDLERS: dict[str, tuple] = {
     "apk-original": (_cmd_apk_original, True),
     "ui": (_cmd_ui, True),
     "clone-install": (_cmd_clone_install, True),
+    "bot-profile": (_cmd_bot_profile, True),
 }
 
 # Befehle, nach denen sich der Prozess selbst beendet — das Ergebnis muss
