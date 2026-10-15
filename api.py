@@ -403,12 +403,12 @@ async def get_dashboard():
 
                 <div class="stats-block">
                     <strong>Bot-App (lokale Schnittstelle)</strong>
-                    <div class="hint">Admin-Token aus der Bot-App (API Gateway → <em>Admin token</em>, vorher „Show“). Damit kann das MacTool bei „Mac updaten“ später einzelne Accounts anhalten, statt die ganze Bot-App zu stoppen. Das Token bleibt auf diesem Mac und wird nie über den Fernzugriff gelesen oder gesetzt.</div>
+                    <div class="hint">Admin-Token aus der Bot-App (API Gateway → <em>Admin token</em> → „Copy“) — <strong>nicht</strong> einen der API-Keys (<code>ak_live_…</code>). Damit kann das MacTool bei „Mac updaten“ später einzelne Accounts anhalten, statt die ganze Bot-App zu stoppen. Das Token bleibt auf diesem Mac und wird nie über den Fernzugriff gelesen oder gesetzt.</div>
                     <div class="fields">
                         <label>Admin-Token<input type="password" id="bot-admin-token" placeholder="kein Token gespeichert" autocomplete="off"></label>
                     </div>
                     <div class="row-actions">
-                        <button class="btn btn-small" onclick="testBotLocal()">Verbindung testen</button>
+                        <button class="btn btn-small" onclick="testBotLocal()">Speichern &amp; testen</button>
                         <span class="last-run" id="bot-local-result"></span>
                     </div>
                 </div>
@@ -1184,8 +1184,23 @@ async def get_dashboard():
 
             async function testBotLocal() {
                 const out = document.getElementById('bot-local-result');
-                out.textContent = 'prüfe…';
+                const field = document.getElementById('bot-admin-token');
+                const typed = field.value.trim();
+                out.style.color = '';
                 try {
+                    // Eingetipptes Token zuerst speichern (Maske = nichts Neues eingetippt)
+                    if (typed && !typed.startsWith('\u2022')) {
+                        out.textContent = 'speichere…';
+                        const saved = await fetch('/api/config', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ bot_admin_token: typed })
+                        });
+                        if (!saved.ok) throw new Error('Speichern fehlgeschlagen (HTTP ' + saved.status + ')');
+                        field.value = '';
+                        field.placeholder = '••••••••' + typed.slice(-4);
+                    }
+                    out.textContent = 'prüfe…';
                     const resp = await fetch('/api/bot/local-test', { method: 'POST' });
                     const data = await resp.json();
                     out.textContent = (data.ok ? '✓ ' : '✗ ') + (data.message || '');

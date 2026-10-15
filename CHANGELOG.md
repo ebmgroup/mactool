@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.0.152 — 2026-10-15
+- Bot-App-Abschnitt: Knopf „Speichern & testen“ — vorher testete „Verbindung testen“ nur den
+  gespeicherten Wert, ein eingetipptes Token wurde erst mit dem allgemeinen Speichern übernommen
+- Hinweis: Admin-Token, nicht einer der API-Keys (ak_live_…)
+
 ## v1.0.151 — 2026-10-15
 - Dashboard (auf dem Mac): Abschnitt „Bot-App (lokale Schnittstelle)“ mit Feld für das
   Admin-Token der Bot-App (geheim, maskiert, nur hier setzbar) und Knopf „Verbindung testen“
