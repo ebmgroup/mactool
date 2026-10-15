@@ -31,3 +31,10 @@
 - Regel: Vor jedem `macctl.py … update` offene ig_update_jobs pruefen und bei > 0 HART
   abbrechen (`[ "$open" != "0" ] && exit 1`), nicht nur anzeigen. Betroffene Macs auslassen
   oder Andreas fragen.
+
+## Eine Vermutung ist keine Ursache — erst den Fehlertext sichern (2026-10-15)
+- Fehler: Abbruch auf mac17/R58WB00BR3F als "doppelter Knopf" erklaert und v1.0.146 gebaut;
+  die echte Ursache (Android 13: android:id/button1 statt com.android.packageinstaller:id/button1)
+  kam erst am 15.10. auf 446 heraus, weil der Fehlertext jetzt sofort geloggt wird.
+- Regel: Bei UI-Automatik das echte Abbild des Fehlermoments holen (`screen`), bevor eine
+  Korrektur gebaut wird. Unterschiede zwischen Android-Versionen immer mitdenken.
