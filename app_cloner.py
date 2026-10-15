@@ -79,7 +79,18 @@ class Cloner:
 
     # ── Grundgriffe ───────────────────────────────────────────────────
 
+    def wake(self):
+        """Bildschirm an und einfachen Sperrbildschirm weg.
+
+        Ein Phone ohne Bot-Accounts geht während des Klonens schlafen (446 auf mac08,
+        15.10.) — dann ist nur noch die Always-On-Uhr im Abbild und die Installations-
+        Abfrage kann nicht erscheinen. WAKEUP alle paar Sekunden hält es wach.
+        """
+        _shell(self.adb, self.serial, "input", "keyevent", "224")   # KEYCODE_WAKEUP
+        _shell(self.adb, self.serial, "wm", "dismiss-keyguard")
+
     def elements(self) -> list[dict]:
+        self.wake()
         return screen(self.serial, picture=False)["elements"]
 
     def fail(self, message: str):
@@ -152,6 +163,8 @@ class Cloner:
     def open_cloned_apps(self):
         """App Cloner vorne, Reiter CLONED APPS aktiv."""
         self.clear_installer()
+        self.wake()
+        time.sleep(1)
         self.key(3)  # Home: kein halber Zustand von vorher
         time.sleep(1)
         _shell(self.adb, self.serial, "monkey", "-p", APP_CLONER, "-c", "android.intent.category.LAUNCHER", "1")
@@ -172,7 +185,8 @@ class Cloner:
                 self.tap(tabs[0], "Reiter CLONED APPS")
                 time.sleep(3)
                 return
-        self.fail("App Cloner nicht bedienbar: Reiter CLONED APPS nicht gefunden")
+        self.fail("App Cloner nicht bedienbar: Reiter CLONED APPS nicht gefunden "
+                  "(Phone gesperrt mit PIN/Muster? Bildschirm aus?)")
 
     @staticmethod
     def pending_header(els: list[dict]) -> list[dict]:

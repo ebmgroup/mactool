@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.0.147 — 2026-10-15
+- App Cloner: Phone vor jedem Bildschirm-Abbild wecken (`KEYCODE_WAKEUP`) und einfachen
+  Sperrbildschirm entfernen. Ein Phone ohne Bot-Accounts ging während des Klonens schlafen
+  (446 auf mac08) — die Installations-Abfrage konnte nicht erscheinen
+
 ## v1.0.146 — 2026-10-14
 - App Cloner: gleiche Elemente im Abbild nur einmal zählen (uiautomator2 liefert alle Fenster);
   bei mehreren Installer-Knöpfen den direkt unter der Update-Frage nehmen. Auf mac17/R58WB00BR3F

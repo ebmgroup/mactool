@@ -148,6 +148,8 @@ out = app_cloner.Cloner("R58").update_clone("com.instagram.androih", T)
 check("Kopie #4 aktualisiert", out["result"] == "aktualisiert" and out["version"] == T, out)
 check("Tipp-Folge wie von Hand",
       phone.taps == ["CLONED APPS    ", "UPDATE", "UPDATE", "INSTALL APP", "Update"], phone.taps)
+check("Phone wird vor jedem Abbild geweckt", sum(s == "input keyevent 224" for s in phone.shell) >= 5
+      and "wm dismiss-keyguard" in phone.shell, phone.shell)
 check("Installer vorher und nachher beendet (Geister-Fenster)",
       sum("force-stop com.google.android.packageinstaller" in s for s in phone.shell) == 2, phone.shell)
 check("App Cloner nie gelöscht/aktualisiert",
