@@ -1,3 +1,20 @@
+# Mac updaten ohne Bot-Stopp (v1.0.154) — Andreas 15.10.
+
+Belegt: einzelne Accounts lassen sich lokal stoppen/starten (bot-profile, Test mac08/ID 85).
+Gestoppt bleibt gestoppt; Instagram bleibt dabei im Vordergrund offen.
+
+- [ ] bot_local: Accounts eines Phones lesen (runState), Zeitfenster pruefen ("run manually" zaehlt)
+- [ ] AccountGuard je Phone: laufende stoppen, alle 10 s neu startende sofort stoppen, danach
+      die gestoppten wieder starten — nur wenn ihr Zeitfenster noch laeuft (oder "run manually")
+- [ ] gestoppte Accounts auf Platte merken (ig_stopped_accounts.json), nach Neustart nachholen
+- [ ] "Mac updaten": mit gueltigem Bot-Key -> AccountGuard statt Bot-Stopp; ohne -> wie bisher
+- [ ] mit Guard kein "Instagram vorne?"-Warten (Instagram bleibt nach Stopp offen) — Home vorher
+- [ ] Ergebnis je Phone: gestoppte/wieder gestartete Accounts im Auftrag
+- [ ] Dashboard: Rueckfrage "Mac updaten" textlich anpassen
+- [ ] Tests, nur mac08 ausrollen, Mac-Update mac08 starten und komplett begleiten
+
+---
+
 # IG Versionen — Dashboard-Steuerpult + automatische Updates (ab v1.0.138)
 
 Auftrag (Andreas, 14.10.): Menuepunkt "IG Versionen" unter /growth/. Admins/Superadmins laden

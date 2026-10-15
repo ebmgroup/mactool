@@ -166,8 +166,13 @@ def _wait_until_idle(cloner, progress) -> bool:
         time.sleep(60)
 
 
-def update_phone(serial: str, version: dict, packages: list[str] | None, progress, cancelled) -> dict:
-    """Ein Handy: Original, dann die gewünschten Kopien. Liefert Ergebnis je Paket."""
+def update_phone(serial: str, version: dict, packages: list[str] | None, progress, cancelled,
+                 guarded: bool = False) -> dict:
+    """Ein Handy: Original, dann die gewünschten Kopien. Liefert Ergebnis je Paket.
+
+    guarded=True ("Mac updaten" mit Bot-Schlüssel): die Accounts dieses Phones werden für die
+    Dauer angehalten (account_guard) statt auf einen freien Moment zu warten.
+    """
     import apk_rollout
     import phone_apps
     from app_cloner import Cloner, is_clone
@@ -195,9 +200,24 @@ def update_phone(serial: str, version: dict, packages: list[str] | None, progres
     original_due = key(ORIGINAL) != version_key(target) and (
         ORIGINAL in outdated or any(is_clone(p) for p in outdated))
 
+    if guarded:
+        import account_guard
+
+        with account_guard.AccountGuard(serial, progress) as guard:
+            results = _update_packages(serial, version, outdated, original_due, cloner, progress, cancelled)
+        results["accounts"] = guard.summary()
+        return results
+
     if not _wait_until_idle(cloner, progress):
         raise apk_rollout.RolloutError("Bot hatte Instagram 20 Minuten lang im Vordergrund — Handy übersprungen")
+    return _update_packages(serial, version, outdated, original_due, cloner, progress, cancelled)
 
+
+def _update_packages(serial, version, outdated, original_due, cloner, progress, cancelled) -> dict:
+    """Original (falls nötig), dann jede veraltete Kopie."""
+    import apk_rollout
+
+    target = version["version_name"]
     results = {}
     if original_due:
         progress("Original aktualisieren")
@@ -263,7 +283,7 @@ def _phone_lock(serial: str) -> threading.Lock:
         return _phone_locks.setdefault(serial, threading.Lock())
 
 
-def _run_phone(client, job_id, serial, version, packages, progress, cancelled) -> dict:
+def _run_phone(client, job_id, serial, version, packages, progress, cancelled, guarded=False) -> dict:
     """Ein Phone unter den Parallel-Grenzen bearbeiten, danach Bestand melden."""
     slot = _phone_slot()
     progress("wartet auf freien Platz")
@@ -271,7 +291,8 @@ def _run_phone(client, job_id, serial, version, packages, progress, cancelled) -
         if cancelled():
             return {"abgebrochen": "vor dem Start"}
         try:
-            result = update_phone(serial, version, packages, progress, cancelled)
+            result = (update_phone(serial, version, packages, progress, cancelled, guarded=True)
+                      if guarded else update_phone(serial, version, packages, progress, cancelled))
         except Exception as e:
             result = {"fehler": f"{type(e).__name__}: {e}"[:MAX_TEXT]}
         try:
@@ -332,6 +353,7 @@ def run_job(client: SupabaseRest, job: dict) -> None:
 
     job_id = job["id"]
     whole_mac = not job.get("serial")
+    guarded = False
 
     def progress(text: str):
         _patch(client, job_id, {"progress": text[:MAX_TEXT]})
@@ -354,22 +376,31 @@ def run_job(client: SupabaseRest, job: dict) -> None:
             results = {job["serial"]: _run_phone(client, job_id, job["serial"], version, packages,
                                                  progress, cancelled)}
         else:
+            import account_guard
+
             states = phone_apps._adb_devices(_find_adb())
             serials = sorted(s for s, state in states.items() if state == "device")
-            _pause_bot(job_id)
+            # Mit Bot-Schlüssel: nur die Accounts des jeweiligen Phones anhalten (Andreas, 15.10.).
+            # Ohne: wie bisher die ganze Bot-App stoppen.
+            guarded = account_guard.available()
+            mode = "Accounts je Phone angehalten" if guarded else "Bot pausiert"
+            if not guarded:
+                _pause_bot(job_id)
             done = []
             try:
                 def one(serial):
                     def phone_progress(text):
-                        progress(f"Bot pausiert · {len(done)}/{len(serials)} Phones fertig · {serial}: {text}")
-                    result = _run_phone(client, job_id, serial, version, None, phone_progress, cancelled)
+                        progress(f"{mode} · {len(done)}/{len(serials)} Phones fertig · {serial}: {text}")
+                    result = _run_phone(client, job_id, serial, version, None, phone_progress, cancelled,
+                                        guarded=guarded)
                     done.append(serial)
                     return serial, result
 
                 with ThreadPoolExecutor(max_workers=_parallel()) as pool:
                     results = dict(pool.map(one, serials))
             finally:
-                _resume_bot()
+                if not guarded:
+                    _resume_bot()
 
         errors = sum(1 for r in results.values()
                      if "fehler" in r or any(str(v).startswith("Fehler") for v in r.values()))
@@ -380,7 +411,8 @@ def run_job(client: SupabaseRest, job: dict) -> None:
             "status": "error" if errors else "done",
             "result": results,
             "progress": f"{len(results) - errors} von {len(results)} Phones ohne Fehler"
-                        + (" · Bot wieder gestartet" if whole_mac else ""),
+                        + ((" · Accounts wieder gestartet" if guarded else " · Bot wieder gestartet")
+                           if whole_mac else ""),
             "error": f"{errors} Phone(s) mit Fehler" if errors else None,
         })
     except Exception as e:
@@ -445,6 +477,11 @@ def run_ig_worker_job() -> dict:
     try:
         if not _recovered:
             done["recovered"] = _recover_orphans(client)
+            try:
+                import account_guard
+                done["accounts_resumed"] = account_guard.resume_pending()
+            except Exception as e:
+                logger.warning(f"IG: angehaltene Accounts nicht nachgestartet: {e}")
             _recovered = True
         with _lock:
             mac_running = any(scope == 2 for scope in _active.values())

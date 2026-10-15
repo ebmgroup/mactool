@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.0.154 — 2026-10-15
+- **„Mac updaten“ ohne Bot-Stopp:** ist die lokale Bot-Schnittstelle mit Schlüssel erreichbar
+  (`bot_admin_token`), hält das MacTool nur die Accounts des Phones an, das gerade dran ist
+  (`account_guard.py`): laufende stoppen, alle 10 s neu startende sofort wieder stoppen, danach
+  die angehaltenen wieder starten — nur wenn ihr Zeitfenster noch läuft (oder „run manually“).
+  Ohne Schlüssel: wie bisher ganze Bot-App stoppen
+- Angehaltene Accounts stehen in `ig_stopped_accounts.json`; nach einem Neustart des MacTools
+  werden sie nachgestartet. Ergebnis je Phone im Auftrag (`accounts`)
+- Mit Wächter kein „Instagram vorne?“-Warten mehr (Instagram bleibt nach einem Stopp offen)
+
 ## v1.0.153 — 2026-10-15
 - `bot-profile profile=<id> action=stop|start|restart`: genau EINEN Account der Bot-App über die
   lokale Schnittstelle steuern, mit Zustand vorher/nachher (Test für „Mac updaten“ ohne Bot-Stopp)

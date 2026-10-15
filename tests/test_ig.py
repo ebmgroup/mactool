@@ -392,6 +392,8 @@ check("dann Phone", ig_worker._claim(db)["id"] == 31)
 check("Mac zuletzt", ig_worker._claim(db)["id"] == 30)
 
 print("Mac updaten: Bot aus, bis zu 5 Phones parallel, Bot wieder an")
+import account_guard as _ag
+_ag.available = lambda: False      # ohne Bot-Schluessel -> alter Weg (Bot stoppen)
 import tempfile, threading as th, time as realtime
 import bot_manager
 import device_monitor
@@ -499,6 +501,57 @@ for bad in (0, 11):
         check(f"ig_parallel_phones={bad} abgelehnt", False)
     except remote_commands.CommandError:
         check(f"ig_parallel_phones={bad} abgelehnt", True)
+
+print("Account-Wächter: nur Accounts des Phones anhalten, danach wieder starten")
+import account_guard, bot_local
+account_guard.time.sleep = lambda s: None
+account_guard.WATCH_SECONDS = 0.02
+account_guard.STATE_FILE = Path(tempfile.mkdtemp()) / "ig_stopped_accounts.json"
+bot = {"85": {"id": "85", "username": "studio", "runState": "running", "timeSlot": "14:00-15:59", "dev": "P1"},
+       "86": {"id": "86", "username": "spaeter", "runState": "finished", "timeSlot": "14:00-15:59", "dev": "P1"},
+       "87": {"id": "87", "username": "vorbei", "runState": "running", "timeSlot": "02:00-03:59", "dev": "P1"},
+       "90": {"id": "90", "username": "anderes", "runState": "running", "timeSlot": "14:00-15:59", "dev": "P2"}}
+actions = []
+bot_local.device_profiles = lambda serial, token=None: [dict(a) for a in bot.values() if a["dev"] == serial]
+def fake_action(pid, action):
+    actions.append((pid, action))
+    bot[pid]["runState"] = "failed" if action == "stop" else "running"
+    return {"status": 200}
+bot_local.profile_action = fake_action
+account_guard._now_minutes = lambda: 14 * 60 + 30
+with account_guard.AccountGuard("P1") as guard:
+    check("laufende Accounts des Phones gestoppt, anderes Phone nicht",
+          ("85", "stop") in actions and ("87", "stop") in actions and not any(a[0] == "90" for a in actions), actions)
+    check("Merkdatei angelegt", account_guard.STATE_FILE.exists())
+    bot["86"]["runState"] = "running"          # Zeitplan startet waehrend des Updates
+    th.Event().wait(0.1)
+    check("startender Account sofort wieder gestoppt", ("86", "stop") in actions, actions)
+s = guard.summary()
+check("im Zeitfenster wieder gestartet", sorted(s["wieder_gestartet"]) == ["spaeter", "studio"], s)
+check("Zeitfenster vorbei -> bleibt aus", s["bleibt_aus (Zeitfenster vorbei)"] == ["vorbei"], s)
+check("Merkdatei wieder weg", not account_guard.STATE_FILE.exists())
+check("'run manually' zaehlt als laufendes Fenster", bot_local.in_timeslot("run manually", 99))
+check("Fenster ueber Mitternacht", bot_local.in_timeslot("22:00-01:59", 30) and not bot_local.in_timeslot("22:00-01:59", 600))
+
+print("Neustart mitten im Update: gemerkte Accounts werden nachgestartet")
+actions.clear()
+bot["85"]["runState"] = "failed"
+account_guard._remember("P1", bot["85"])
+account_guard.resume_pending()
+check("nachgestartet und Datei leer", ("85", "start") in actions and not account_guard.STATE_FILE.exists(), actions)
+
+print("Mac updaten mit Bot-Schlüssel: kein Bot-Stopp, Wächter je Phone")
+botstate = {"stops": 0}
+bot_manager.stop_bot = lambda: botstate.__setitem__("stops", botstate["stops"] + 1) or True
+account_guard.available = lambda: True
+seen = []
+ig_worker.update_phone = lambda serial, version, packages, progress, cancelled, guarded=False: seen.append((serial, guarded)) or {"x": "aktualisiert"}
+phone_apps._adb_devices = lambda adb: {"P1": "device", "P2": "device"}
+db.t["ig_update_jobs"] = [jobrow(80, None, None, 1)]
+ig_worker.run_job(db, ig_worker._claim(db))
+check("Bot NICHT gestoppt", botstate["stops"] == 0, botstate)
+check("jedes Phone mit Wächter", sorted(seen) == [("P1", True), ("P2", True)], seen)
+check("Auftrag fertig", db.t["ig_update_jobs"][0]["status"] == "done", db.t["ig_update_jobs"][0])
 
 print("Neustart: verwaiste laufende Aufträge werden wieder eingereiht")
 db.t["ig_update_jobs"] = [
