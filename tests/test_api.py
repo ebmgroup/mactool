@@ -140,5 +140,41 @@ finally:
     cfg_mod.CONFIG_FILE = old_file
     Path("config_downgrade.json").unlink()
 
+print("\n[Bot-App] Admin-Token wie ein Key behandelt")
+cfg.bot_admin_token = "i50rgeheimes-token-WXYZ"
+s = client.get("/api/stats/settings").json()
+check("Token maskiert", s["bot"]["admin_token_masked"] == "••••••••WXYZ", s.get("bot"))
+check("Token nie im Klartext", "geheimes-token" not in json.dumps(s))
+client.put("/api/config", json={"bot_admin_token": ""})
+check("leer laesst Token stehen", cfg.bot_admin_token == "i50rgeheimes-token-WXYZ")
+client.put("/api/config", json={"bot_admin_token": "••••••••WXYZ"})
+check("Maske zurueck aendert nichts", cfg.bot_admin_token == "i50rgeheimes-token-WXYZ")
+client.put("/api/config", json={"bot_admin_token": "neues-token"})
+check("neues Token gesetzt", cfg.bot_admin_token == "neues-token")
+client.put("/api/config", json={"bot_admin_token": "-"})
+check("'-' loescht Token", cfg.bot_admin_token == "")
+
+import bot_local, types
+calls = []
+class R:
+    def __init__(self, status, body): self.status_code, self._b = status, body
+    def json(self): return self._b
+def fake_get(url, headers=None, timeout=None):
+    calls.append((url, dict(headers or {})))
+    if url.endswith("/ui/runtime/instagram"): return R(200, {"ok": True})
+    if (headers or {}).get("X-Admin-Key") == "richtig": return R(200, {"devices": [1, 2, 3]})
+    return R(401, {"error": "Missing X-API-Key header"})
+bot_local.requests = types.SimpleNamespace(get=fake_get, RequestException=Exception)
+r = client.post("/api/bot/local-test").json()
+check("ohne Token: erreichbar, aber Hinweis", r["ok"] is False and r.get("reachable") is True, r)
+cfg.bot_admin_token = "richtig"
+r = client.post("/api/bot/local-test").json()
+check("Token mit X-Admin-Key erkannt", r["ok"] and r["header"] == "X-Admin-Key" and r["devices"] == 3, r)
+check("nur lesende Abfragen an die Bot-App", all("/api/devices" in u or "/ui/runtime" in u for u, _ in calls), calls)
+cfg.bot_admin_token = "falsch"
+r = client.post("/api/bot/local-test").json()
+check("falsches Token klar gemeldet", r["ok"] is False and "nicht angenommen" in r["message"], r)
+cfg.bot_admin_token = ""
+
 print("\n" + ("ALLE TESTS BESTANDEN" if not failures else f"{len(failures)} FEHLGESCHLAGEN: {failures}"))
 sys.exit(1 if failures else 0)

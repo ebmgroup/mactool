@@ -72,7 +72,7 @@ for path, pkg, name in (("/data/x.apk", "com.instagram.androie", "Pfad außerhal
     except apk_rollout.RolloutError:
         check(f"clone-install lehnt ab: {name}", True)
 check("clone-install ist eingreifend", remote_commands.HANDLERS["clone-install"][1] is True)
-for bad in ("/v1/devices", "/api/../v1", "http://evil/api/x", ""):
+for bad in ("/v1/devices", "/api/../v1", "http://evil/api/x"):
     try:
         remote_commands._cmd_bot_local({"path": bad})
         check(f"bot-local lehnt {bad!r} ab", False)

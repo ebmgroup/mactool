@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.151 — 2026-10-15
+- Dashboard (auf dem Mac): Abschnitt „Bot-App (lokale Schnittstelle)“ mit Feld für das
+  Admin-Token der Bot-App (geheim, maskiert, nur hier setzbar) und Knopf „Verbindung testen“
+  (lesend: GET /api/devices, erkennt X-API-Key bzw. X-Admin-Key)
+- `bot_local.py`: gemeinsamer Zugriff auf 127.0.0.1:8765, bisher nur lesend
+- `bot-local` ohne `path` = Verbindungstest; mit `/api/…` wird das Token mitgeschickt
+
 ## v1.0.150 — 2026-10-15
 - Neuer lesender Befehl `bot-local path=/api/…|/ui/…`: GET an die lokale Schnittstelle der
   Bot-App (127.0.0.1:8765) — Erkundung, ob das MacTool Accounts einzeln steuern kann

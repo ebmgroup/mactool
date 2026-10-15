@@ -105,6 +105,7 @@ class ConfigUpdate(BaseModel):
     alert_smtp_port: int | None = None
     alert_smtp_user: str | None = None
     alert_smtp_password: str | None = None  # wie die Keys: maskiert rein, leer = unverändert
+    bot_admin_token: str | None = None      # Admin-Token der Bot-App, wie die Keys
     alert_smtp_security: str | None = None
     alert_mail_cooldown_hours: int | None = None
 
@@ -398,6 +399,18 @@ async def get_dashboard():
                         <span class="last-run" id="alert-last-check"></span>
                     </div>
                     <div id="alert-test"></div>
+                </div>
+
+                <div class="stats-block">
+                    <strong>Bot-App (lokale Schnittstelle)</strong>
+                    <div class="hint">Admin-Token aus der Bot-App (API Gateway → <em>Admin token</em>, vorher „Show“). Damit kann das MacTool bei „Mac updaten“ später einzelne Accounts anhalten, statt die ganze Bot-App zu stoppen. Das Token bleibt auf diesem Mac und wird nie über den Fernzugriff gelesen oder gesetzt.</div>
+                    <div class="fields">
+                        <label>Admin-Token<input type="password" id="bot-admin-token" placeholder="kein Token gespeichert" autocomplete="off"></label>
+                    </div>
+                    <div class="row-actions">
+                        <button class="btn btn-small" onclick="testBotLocal()">Verbindung testen</button>
+                        <span class="last-run" id="bot-local-result"></span>
+                    </div>
                 </div>
 
                 <div class="stats-block">
@@ -1074,6 +1087,10 @@ async def get_dashboard():
                     document.getElementById('alert-password').placeholder =
                         alerts.password_masked || 'kein Passwort gespeichert';
                     setValue('alert-cooldown', alerts.cooldown_hours);
+                    const bot = data.bot || {};
+                    setKeyField('bot-admin-token', bot.admin_token_masked);
+                    document.getElementById('bot-admin-token').placeholder =
+                        bot.admin_token_masked || 'kein Token gespeichert';
                     renderIntegrityRun((data.last_runs || {}).db_integrity, alerts.db_path);
 
                     const lastRun = (data.last_runs || {}).customer_stats;
@@ -1123,7 +1140,8 @@ async def get_dashboard():
                     supabase_key: 'dash-key',
                     customer_stats_key: 'cust-stats-key',
                     customer_users_key: 'cust-users-key',
-                    alert_smtp_password: 'alert-password'
+                    alert_smtp_password: 'alert-password',
+                    bot_admin_token: 'bot-admin-token'
                 };
                 for (const [field, id] of Object.entries(keyFields)) {
                     const value = document.getElementById(id).value.trim();
@@ -1162,6 +1180,20 @@ async def get_dashboard():
                 const when = run.at ? run.at.replace('T', ' ') : '?';
                 el.textContent = `zuletzt ${when} — ${run.summary || run.status}`;
                 el.style.color = run.status === 'success' ? '' : '#f44336';
+            }
+
+            async function testBotLocal() {
+                const out = document.getElementById('bot-local-result');
+                out.textContent = 'prüfe…';
+                try {
+                    const resp = await fetch('/api/bot/local-test', { method: 'POST' });
+                    const data = await resp.json();
+                    out.textContent = (data.ok ? '✓ ' : '✗ ') + (data.message || '');
+                    out.style.color = data.ok ? '#2e7d32' : '#c62828';
+                } catch (e) {
+                    out.textContent = '✗ ' + e;
+                    out.style.color = '#c62828';
+                }
             }
 
             async function sendTestMail() {
@@ -1699,6 +1731,7 @@ async def update_config(update: ConfigUpdate):
         config.alert_smtp_password = _apply_key(
             config.alert_smtp_password, update.alert_smtp_password
         )
+        config.bot_admin_token = _apply_key(config.bot_admin_token, update.bot_admin_token)
         if update.alert_smtp_security is not None:
             security = update.alert_smtp_security.strip().lower()
             if security not in ("starttls", "ssl", "none"):
@@ -1823,6 +1856,7 @@ async def get_stats_settings():
                 "cooldown_hours": config.alert_mail_cooldown_hours,
                 "db_path": str(Path(config.sqlite_db_path).expanduser()),
             },
+            "bot": {"admin_token_masked": _mask_key(config.bot_admin_token)},
             "legacy_upload": legacy_upload.get_status(),
             "last_runs": run_state.get_runs(),
         }
@@ -1942,6 +1976,14 @@ async def enable_legacy_upload(req: AgentRequest):
     if result.get("status") == "error":
         raise HTTPException(status_code=400, detail=result["error"])
     return result
+
+
+@app.post("/api/bot/local-test")
+async def bot_local_test():
+    """Lesend prüfen, ob die lokale Bot-App-Schnittstelle das Admin-Token annimmt."""
+    import bot_local
+
+    return bot_local.test_connection()
 
 
 @app.post("/api/bot/restart")
