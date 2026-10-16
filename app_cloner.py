@@ -199,10 +199,12 @@ class Cloner:
             if self.pending_header(els):
                 return
             tabs = [e for e in els if e.get("click") and any(_plain(e.get("desc")).startswith(t) for t in TAB_CLONED_APPS)]
+            # Ersatz: der Reiter-Text selbst (bei manchen Layouts trägt nur er die Beschriftung)
+            tabs = tabs or [e for e in els if any(_plain(e.get("text")).upper().startswith(t) for t in TAB_CLONED_APPS)]
             if tabs:
                 self.tap(tabs[0], "Reiter CLONED APPS")
-                time.sleep(3)
-                return
+                # nicht blind weiter: die nächste Runde prüft, ob "Pending updates" wirklich da ist
+                continue
         self.fail("App Cloner nicht bedienbar: Reiter CLONED APPS nicht gefunden "
                   "(Phone gesperrt mit PIN/Muster? Bildschirm aus?)")
 

@@ -10,6 +10,7 @@ Ziel: bei "Mac updaten" nur die betroffenen Accounts anhalten statt die ganze Bo
 """
 
 import logging
+import re
 
 import requests
 
@@ -89,8 +90,9 @@ def profile_action(profile_id: str, action: str) -> dict:
     """Genau EINEN Account stoppen / starten / neu starten. Vorher und nachher lesen."""
     if action not in PROFILE_ACTIONS:
         raise BotLocalError(f"action muss {', '.join(PROFILE_ACTIONS)} sein")
-    if not str(profile_id).isdigit():
-        raise BotLocalError("profile muss eine Account-ID (Zahl) sein")
+    # IDs sind Zahlen ODER Hex wie "89e1f75530b55bd9" (mac06/mac14, 16.10.)
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", str(profile_id)):
+        raise BotLocalError("profile muss eine Account-ID sein (Buchstaben/Ziffern)")
     token = get_config().bot_admin_token or ""
     if not token:
         raise BotLocalError("bot_admin_token ist nicht gesetzt")

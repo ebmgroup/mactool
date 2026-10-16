@@ -85,6 +85,17 @@ for bad_args in ({"profile": "232", "action": "delete"}, {"profile": "1,2", "act
         check(f"bot-profile lehnt {bad_args} ab", False)
     except remote_commands.CommandError:
         check(f"bot-profile lehnt {bad_args} ab", True)
+import bot_local as _bl
+import config as _c
+_c.get_config().bot_admin_token = ""
+for pid, ok_expected in (("89e1f75530b55bd9", True), ("27818619", True), ("1;rm", False), ("../x", False)):
+    try:
+        _bl.profile_action(pid, "stop")
+        check(f"Account-ID {pid!r}", False)
+    except _bl.BotLocalError as e:
+        # gueltige ID kommt bis zur Token-Pruefung, ungueltige scheitert vorher
+        check(f"Account-ID {pid!r} {'akzeptiert' if ok_expected else 'abgelehnt'}",
+              ("bot_admin_token" in str(e)) == ok_expected, str(e))
 check("bot-local ist lesend", remote_commands.HANDLERS["bot-local"][1] is False)
 import config as _cfg
 check("bot_admin_token ist geheim (nicht per set, maskiert)", "bot_admin_token" in _cfg.SECRET_FIELDS)
