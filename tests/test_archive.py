@@ -122,6 +122,9 @@ with tempfile.TemporaryDirectory() as tmp:
     check("alles Jüngere und Fremde ist noch da", all(p.exists() for p in bleibt), [str(p) for p in bleibt if not p.exists()])
     check("Symlink nicht angefasst", link.is_symlink())
     check("Frist ist 60 Tage", au.LOCAL_RETENTION_DAYS == 60)
+    check("Block-ZIP von Bot 3.8.7 wird erkannt",
+          au.name_datum("3.8.7b0_2026-10-25-23-24-17_block.zip") == datetime(2026, 10, 25, 23, 24, 17))
+    check("fremde Endung mit Großbuchstaben bleibt fremd", au.name_datum("3.8.7b0_2026-10-25-23-24-17_Block.zip") is None)
 
     # ── Upload ────────────────────────────────────────────────────────
     au._jpeg = lambda png: (b"JPEG", "image/jpeg")  # sips gibt es hier evtl. nicht

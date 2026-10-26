@@ -57,8 +57,9 @@ LOG_ZEILEN = 400
 # 7-Tage-Fenster wird dann noch einmal hochgeladen (x-upsert ueberschreibt).
 STAND = 3  # 3: zusaetzlich hierarchy.xml (v1.0.128)
 
-# 3.7.9b0_2026-09-27-20-58-23.zip
-NAME_RE = re.compile(r"^[0-9][0-9A-Za-z.]*_(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})\.zip$")
+# 3.7.9b0_2026-09-27-20-58-23.zip — ab Bot 3.8.7 auch mit Art-Endung:
+# 3.8.7b0_2026-10-25-23-24-17_block.zip („Try again later"-Fenster, v1.0.156)
+NAME_RE = re.compile(r"^[0-9][0-9A-Za-z.]*_(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})(?:_[a-z]+)?\.zip$")
 
 APP_DIR = Path(__file__).parent
 _STATE_FILE = APP_DIR / "archive_state.json"

@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.0.156 — 2026-10-26
+- Archiv-Upload: Bot 3.8.7 speichert das Instagram-Fenster „Try again later" als
+  `…_block.zip` — das Namensmuster ließ diese ZIPs aus, sie kamen nie im Dashboard an
+  (71 seit 21.10.). Jetzt erkannt; der nächste Lauf lädt die der letzten 7 Tage nach
+
 ## v1.0.155 — 2026-10-16
 - Account-Wächter: Account-IDs auch als Hex (`89e1f75530b55bd9`) — vorher wurde dadurch das
   ganze Phone übersprungen (8 Phones auf mac06/mac14 in der Nacht zum 16.10.)
