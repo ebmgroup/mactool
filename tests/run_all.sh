@@ -30,6 +30,7 @@ TESTS=(
   test_apps.py         # apps: Instagram-Bestand der Handys, nur lesende adb-Befehle
   test_rollout.py      # Rollout: ein Handy, Original nur im Notfall entfernt, nie eine Kopie
   test_ig.py           # IG Versionen: App-Cloner-Ablauf, Auftraege, Bestand
+  test_automatik.py    # bot-config, phone-info, samsung-updates, phone-reboot: dry, Schutz, Nachlesen
 )
 
 mkdir -p "$WORKDIR"

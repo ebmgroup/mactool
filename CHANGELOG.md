@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.0.157 — 2026-10-27
+Befehle für die Dashboard-Automatik von SK TEST 3 (eingreifende immer `dry=true`, bis `dry=false` kommt):
+- `bot-config profile=<id> param=<p> value=<v> expect=<alt> [dry=true]` (eingreifend): genau EIN
+  Config-Wert EINES Accounts der Bot-App. Erlaubt: `total-follows-limit`, `total-unfollows-limit`
+  (Zahl/Bereich, max 80), `stop-unfollow-after` (max 60) über `PATCH /api/profiles/{id}/config`,
+  `blogger-followers` (Kommaliste `[a-z0-9._]{1,30}`) über `PATCH …/targeting`. Verweigert bei
+  laufendem Account, Zeitfenster in ≤ 5 min, Wert ≠ `expect`, uneinheitlichen Follow-Feldern;
+  nie `all`/`new`. Danach nachlesen: `ok` nur, wenn der Wert in allen Feldern steht, sonst
+  `reverted_or_failed` mit vorher/nachher. Der enabled-Schalter der Ziel-Quelle bleibt, wie er
+  war (gelesen über `profile.targeting.read`; der PATCH setzte ihn sonst auf aus)
+- `phone-info serial=<s>` (lesend): adb-Zustand, Hersteller/Modell/Android, Uptime, `df /data`,
+  Samsung-Update-Pakete installiert/aktiv, `ota_disable_automatic_update`, Instagram vorne?
+- `samsung-updates serial=<s> action=status|off|on [dry=true]`: status lesend; off/on (brauchen
+  `remote_allow_actions`) `pm disable-user`/`pm enable` für com.wssyncmldm + com.sec.android.soagent
+  und das OTA-Setting — nur Samsung, nur wenn beide Pakete da sind, danach nachgeprüft
+- `phone-reboot serial=<s> [dry=true]` (eingreifend): verweigert, wenn ein Account des Phones läuft,
+  in ≤ 15 min ein Zeitfenster beginnt, die Bot-App nicht lesbar ist oder ein IG-Update das Phone
+  hält; sonst `adb reboot`, warten auf `sys.boot_completed` (max 180 s), danach online prüfen
+
 ## v1.0.156 — 2026-10-26
 - Archiv-Upload: Bot 3.8.7 speichert das Instagram-Fenster „Try again later" als
   `…_block.zip` — das Namensmuster ließ diese ZIPs aus, sie kamen nie im Dashboard an

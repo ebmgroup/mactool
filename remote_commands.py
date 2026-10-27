@@ -258,6 +258,49 @@ def _cmd_bot_profile(args: dict) -> dict:
         raise CommandError(str(e)) from e
 
 
+def _dry(args: dict) -> bool:
+    """Eingreifende Automatik-Befehle planen nur — bis ausdrücklich dry=false kommt."""
+    value = args.get("dry", True)
+    return not (value is False or str(value).strip().lower() in ("false", "0", "nein", "no"))
+
+
+def _cmd_bot_config(args: dict) -> dict:
+    """Genau EINEN Config-Wert EINES Accounts ändern (Allowlist), mit expect + Nachlesen."""
+    import bot_local
+
+    if "expect" not in args:
+        raise CommandError("expect=<aktueller Wert> fehlt")
+    try:
+        return bot_local.bot_config(args.get("profile"), str(args.get("param") or ""), args.get("value"),
+                                    args.get("expect"), dry=_dry(args))
+    except bot_local.BotLocalError as e:
+        raise CommandError(str(e)) from e
+
+
+def _cmd_phone_info(args: dict) -> dict:
+    """Uptime, Speicher, Samsung-Update-Pakete, adb, Modell, Instagram vorne? (nur lesend)."""
+    import phone_control
+
+    return _rollout(phone_control.phone_info, args.get("serial"))
+
+
+def _cmd_samsung_updates(args: dict) -> dict:
+    """Samsung-Systemupdates auf GENAU EINEM Phone: status (lesend) / off / on."""
+    import phone_control
+
+    action = str(args.get("action") or "status").lower()
+    if action != "status" and not get_config().remote_allow_actions:
+        raise CommandError("samsung-updates off/on greift ein (remote_allow_actions = false)")
+    return _rollout(phone_control.samsung_updates, args.get("serial"), action, _dry(args))
+
+
+def _cmd_phone_reboot(args: dict) -> dict:
+    """GENAU EIN Phone neu starten — verweigert, solange einer seiner Accounts läuft/gleich startet."""
+    import phone_control
+
+    return _rollout(phone_control.phone_reboot, args.get("serial"), _dry(args))
+
+
 def _cmd_apk_fetch(args: dict) -> dict:
     """Release aus dem Bucket apk holen und prüfen (schreibt nur auf dem Mac)."""
     import apk_rollout
@@ -596,6 +639,9 @@ HANDLERS: dict[str, tuple] = {
     "phone-log": (_cmd_phone_log, False),
     "phone-apks": (_cmd_phone_apks, False),
     "bot-local": (_cmd_bot_local, False),
+    "phone-info": (_cmd_phone_info, False),
+    # status ist lesend; off/on prüft remote_allow_actions selbst
+    "samsung-updates": (_cmd_samsung_updates, False),
     "warnings": (_cmd_warnings, False),
     "warning-text": (_cmd_warning_text, False),
     "warning-part": (_cmd_warning_part, False),
@@ -613,6 +659,8 @@ HANDLERS: dict[str, tuple] = {
     "ui": (_cmd_ui, True),
     "clone-install": (_cmd_clone_install, True),
     "bot-profile": (_cmd_bot_profile, True),
+    "bot-config": (_cmd_bot_config, True),
+    "phone-reboot": (_cmd_phone_reboot, True),
 }
 
 # Befehle, nach denen sich der Prozess selbst beendet — das Ergebnis muss
