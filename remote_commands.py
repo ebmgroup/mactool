@@ -265,14 +265,24 @@ def _dry(args: dict) -> bool:
 
 
 def _cmd_bot_config(args: dict) -> dict:
-    """Genau EINEN Config-Wert EINES Accounts ändern (Allowlist), mit expect + Nachlesen."""
+    """Genau EINEN Config-Wert EINES Accounts ändern (Allowlist), mit expect + Nachlesen.
+
+    Für blogger-followers optional enabled=true|false (Ziel-Quelle an/aus); ohne bleibt sie, wie
+    der Bot sie heute bekommt.
+    """
     import bot_local
 
     if "expect" not in args:
         raise CommandError("expect=<aktueller Wert> fehlt")
     try:
+        enabled = args.get("enabled")
+        if enabled is not None:
+            text = str(enabled).strip().lower()
+            if text not in ("true", "false"):
+                raise CommandError("enabled muss true oder false sein")
+            enabled = text == "true"
         return bot_local.bot_config(args.get("profile"), str(args.get("param") or ""), args.get("value"),
-                                    args.get("expect"), dry=_dry(args))
+                                    args.get("expect"), dry=_dry(args), enabled=enabled)
     except bot_local.BotLocalError as e:
         raise CommandError(str(e)) from e
 

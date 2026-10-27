@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.0.159 — 2026-10-27
+- `bot-config blogger-followers`: der Schalter der Ziel-Quelle wird nicht mehr blind aus
+  `profile.targeting.read` übernommen. Ein FEHLENDER `target-source-state`-Eintrag liest sich dort
+  als false, der Renderer der Bot-App behandelt ihn aber als aktiv — der PATCH hätte solche
+  Ziellisten stillgelegt. Jetzt gilt zusätzlich die Zeile in `accounts/<user>/config.yml`
+  (aktiv / auskommentiert); Ergebnis zeigt `enabled_read` und `config_yml_active`
+- Neu: optional `enabled=true|false`, um die Ziel-Quelle ausdrücklich an- oder abzuschalten
+
 ## v1.0.158 — 2026-10-27
 - `phone-info`: `df_data` ist jetzt die Zeile von `/data` (Samsung listet weitere Mounts wie
   …/Android/obb dahinter); Vordergrund ohne die „Broken pipe“-Zeile von dumpsys

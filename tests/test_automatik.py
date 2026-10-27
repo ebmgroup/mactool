@@ -27,6 +27,7 @@ def check(name, condition, detail=""):
 class Cfg:
     bot_admin_token = "tok"
     remote_allow_actions = True
+    sqlite_db_path = "/nonexistent/mactool-test/super.db"
 
 
 bot_local.get_config = lambda: Cfg
@@ -172,6 +173,35 @@ check("über /targeting, enabled bleibt false",
 r = bot_local.bot_config("24", "blogger-followers", "", "testziel_eins, testziel_zwei", dry=False, now_minutes=NOON)
 check("zurück auf leer (expect mit Leerzeichen)", r["status"] == "ok"
       and r["after"] == {"blogger-followers": ""}, r)
+
+print("bot-config: enabled-Schalter")
+import tempfile
+storage = Path(tempfile.mkdtemp())
+Cfg.sqlite_db_path = str(storage / "super.db")
+acc = storage / "accounts" / "kaumgesehen"; acc.mkdir(parents=True)
+check("config.yml fehlt -> None", bot_local.rendered_targets_active("kaumgesehen") is None)
+(acc / "config.yml").write_text("username: kaumgesehen\nblogger-followers: [a, b]\n")
+check("aktive Zeile -> True", bot_local.rendered_targets_active("kaumgesehen") is True)
+check("Pfad-Trick im Namen -> None", bot_local.rendered_targets_active("../kaumgesehen") is None)
+bot = use(FakeBot(make_profile(targets="a,b"), enabled=False))   # Eintrag fehlt: liest false, wirkt aktiv
+r = bot_local.bot_config("24", "blogger-followers", "c,d", "a,b", dry=False, now_minutes=NOON)
+check("fehlender Eintrag, aber config.yml aktiv -> bleibt aktiv",
+      r["status"] == "ok" and bot.patches[0][1]["sources"]["blogger-followers"]["enabled"] is True, (r, bot.patches))
+(acc / "config.yml").write_text("username: kaumgesehen\n#blogger-followers: [a, b]\n")
+check("auskommentiert -> False", bot_local.rendered_targets_active("kaumgesehen") is False)
+bot = use(FakeBot(make_profile(targets="a,b"), enabled=False))
+r = bot_local.bot_config("24", "blogger-followers", "c,d", "a,b", dry=False, now_minutes=NOON)
+check("wirklich aus -> bleibt aus", bot.patches[0][1]["sources"]["blogger-followers"]["enabled"] is False, bot.patches)
+bot = use(FakeBot(make_profile(targets="a,b"), enabled=False))
+r = remote_commands._cmd_bot_config({"profile": "24", "param": "blogger-followers", "value": "a,b", "expect": "a,b",
+                                     "enabled": True, "dry": False})
+check("enabled=true ausdrücklich, gleiche Liste -> PATCH", r["status"] == "ok" and r["enabled_after"] is True, r)
+try:
+    remote_commands._cmd_bot_config({"profile": "24", "param": "blogger-followers", "value": "a", "expect": "a,b",
+                                     "enabled": "vielleicht"})
+    check("enabled=vielleicht abgelehnt", False)
+except remote_commands.CommandError:
+    check("enabled=vielleicht abgelehnt", True)
 
 class Guarded(FakeBot):
     """Mindestbestand der Bot-App: kürzen wird still ignoriert (HTTP 200)."""

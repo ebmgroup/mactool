@@ -263,6 +263,30 @@ def targeting_state(profile_id: str) -> dict:
     return {"value": str(source.get("value") or ""), "enabled": bool(source.get("enabled"))}
 
 
+def rendered_targets_active(username: str) -> bool | None:
+    """Was der Bot wirklich bekommt: steht `blogger-followers:` in config.yml aktiv (True),
+    auskommentiert (False) oder gar nicht (None)?
+
+    Nötig, weil profile.targeting.read einen FEHLENDEN target-source-state-Eintrag als false
+    meldet, der Renderer ihn aber als aktiv behandelt (SetupWriter, 1.4.0.60). Wer den gelesenen
+    Wert blind zurückschickt, legt bei solchen Accounts die Zielliste still.
+    """
+    if not re.fullmatch(r"[A-Za-z0-9._]{1,30}", username or ""):
+        return None
+    from pathlib import Path
+
+    path = Path(get_config().sqlite_db_path).expanduser().parent / "accounts" / username / "config.yml"
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    for line in text.splitlines():
+        match = re.match(r"^\s*(#?)\s*blogger-followers\s*:", line)
+        if match:
+            return match.group(1) != "#"
+    return None
+
+
 def _patch(path: str, token: str, payload: dict) -> tuple[int, object]:
     response = requests.patch(BASE + path, json=payload, timeout=60,
                               headers={"Accept": "application/json", "X-API-Key": token})
@@ -277,7 +301,7 @@ def _short(body, limit: int = 4000):
 
 
 def bot_config(profile_id, param: str, value, expect, dry: bool = True,
-               now_minutes: int | None = None) -> dict:
+               now_minutes: int | None = None, enabled: bool | None = None) -> dict:
     """Genau EINEN Config-Wert eines Accounts ändern. Standard: nur Plan (dry)."""
     profile_id = _text(profile_id)
     if profile_id.lower() in ("all", "new", "*") or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", profile_id):
@@ -324,15 +348,19 @@ def bot_config(profile_id, param: str, value, expect, dry: bool = True,
         if _norm(param, targeting_before["value"]) != current:
             return refuse("Targeting und Config widersprechen sich: "
                           f"{targeting_before['value']!r} / {current!r}")
-        # enabled bleibt, wie er ist — der PATCH setzt ihn sonst auf false
-        payload = {"sources": {"blogger-followers": {"value": new_value,
-                                                     "enabled": targeting_before["enabled"]}}}
-        head["enabled"] = targeting_before["enabled"]
+        # Der PATCH setzt enabled immer (fehlt er: false). Ohne Vorgabe bleibt, was der Bot heute
+        # bekommt: aktiv, wenn gelesen true ODER die Zeile in config.yml aktiv steht.
+        rendered = rendered_targets_active(str(before.get("username") or ""))
+        if enabled is None:
+            enabled = bool(targeting_before["enabled"] or rendered)
+        payload = {"sources": {"blogger-followers": {"value": new_value, "enabled": bool(enabled)}}}
+        head.update({"enabled": bool(enabled), "enabled_read": targeting_before["enabled"],
+                     "config_yml_active": rendered})
     else:
         payload = {"parameter": param, "value": new_value}
     plan = {"method": "PATCH", "path": f"/api/profiles/{profile_id}/{endpoint}", "body": payload}
 
-    if current == new_value:
+    if current == new_value and (endpoint != "targeting" or bool(enabled) == targeting_before["enabled"]):
         return {**head, "status": "unchanged", "plan": plan, "before": fields, "after": fields}
     if dry:
         return {**head, "status": "dry", "plan": plan, "before": fields}
@@ -353,6 +381,6 @@ def bot_config(profile_id, param: str, value, expect, dry: bool = True,
                               "/targeting und die Oberfläche nicht")
         targeting_after = targeting_state(profile_id)
         result["enabled_after"] = targeting_after["enabled"]
-        if targeting_after["enabled"] != targeting_before["enabled"]:
+        if targeting_after["enabled"] != bool(enabled):
             result["status"] = "reverted_or_failed"
     return result
