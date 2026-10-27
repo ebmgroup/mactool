@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.158 — 2026-10-27
+- `phone-info`: `df_data` ist jetzt die Zeile von `/data` (Samsung listet weitere Mounts wie
+  …/Android/obb dahinter); Vordergrund ohne die „Broken pipe“-Zeile von dumpsys
+- `bot-config blogger-followers`: Hinweis im Ergebnis, wenn das Kürzen der Liste nicht greift —
+  die Bot-App hält einen Mindestbestand (`doNotAllowDeleteLessThan`), belegt auf mac17: 2 → 0 gab
+  HTTP 200, die Liste blieb
+
 ## v1.0.157 — 2026-10-27
 Befehle für die Dashboard-Automatik von SK TEST 3 (eingreifende immer `dry=true`, bis `dry=false` kommt):
 - `bot-config profile=<id> param=<p> value=<v> expect=<alt> [dry=true]` (eingreifend): genau EIN

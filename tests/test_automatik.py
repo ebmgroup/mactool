@@ -173,6 +173,16 @@ r = bot_local.bot_config("24", "blogger-followers", "", "testziel_eins, testziel
 check("zurück auf leer (expect mit Leerzeichen)", r["status"] == "ok"
       and r["after"] == {"blogger-followers": ""}, r)
 
+class Guarded(FakeBot):
+    """Mindestbestand der Bot-App: kürzen wird still ignoriert (HTTP 200)."""
+    def patch(self, path, token, payload):
+        self.patches.append((path, payload))
+        return 200, {"ok": True}
+bot = use(Guarded(make_profile(targets="a,b"), enabled=False))
+r = bot_local.bot_config("24", "blogger-followers", "", "a,b", dry=False, now_minutes=NOON)
+check("Mindestbestand: reverted_or_failed mit Hinweis", r["status"] == "reverted_or_failed"
+      and "Mindestbestand" in r.get("hint", ""), r)
+
 check("bot-config ist eingreifend", remote_commands.HANDLERS["bot-config"][1] is True)
 
 print("Zeitfenster-Beginn")
@@ -215,9 +225,10 @@ class FakePhone:
         if command == "cat /proc/uptime":
             return "123.45 456.78"
         if command.startswith("df"):
-            return "Filesystem Size Used Avail Use% Mounted on\n/dev/block/dm-6 52G 40G 12G 77% /data"
+            return ("Filesystem Size Used Avail Use% Mounted on\n/dev/block/dm-6 21G 17G 4.4G 80% /data\n"
+                    "/dev/block/dm-50 21G 17G 4.4G 80% /storage/emulated/0/Android/obb")
         if command.startswith("dumpsys activity"):
-            return self.focus
+            return self.focus + "\nFailed to write while dumping service activity: Broken pipe"
         return "x"
 
 
@@ -231,7 +242,8 @@ def use_phone(phone):
 print("phone-info")
 ph = use_phone(FakePhone(focus="mResumedActivity: com.instagram.androie/.MainActivity"))
 info = phone_control.phone_info("R58WB02WFEF")
-check("liest alles", info["online"] and info["uptime_seconds"] == 123 and info["df_data"].endswith("/data")
+check("liest alles", info["online"] and info["uptime_seconds"] == 123 and info["df_data"].split()[-1] == "/data"
+      and info["foreground"] == "mResumedActivity: com.instagram.androie/.MainActivity"
       and info["update_packages"]["com.wssyncmldm"] == {"installed": True, "enabled": True}
       and info["instagram_vorne"] and info["ota_disable_automatic_update"] == "null", info)
 check("phone-info schreibt nichts", not any(c.startswith(("pm disable", "pm enable", "settings put", "reboot"))

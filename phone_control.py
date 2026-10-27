@@ -70,7 +70,15 @@ def _ota_setting(adb: str, serial: str) -> str:
 
 
 def _foreground(adb: str, serial: str) -> str:
-    return _shell(adb, serial, "dumpsys activity activities | grep -m1 -E 'topResumedActivity|mResumedActivity'")
+    out = _shell(adb, serial, "dumpsys activity activities | grep -m1 -E 'topResumedActivity|mResumedActivity'")
+    # grep -m1 schließt die Leitung -> dumpsys meldet "Failed to write … Broken pipe"
+    return next((l.strip() for l in out.splitlines() if "Resumed" in l), out.splitlines()[0] if out else "")
+
+
+def _df_data(adb: str, serial: str) -> str:
+    """Die Zeile von /data. Samsung listet bei `df /data` weitere Mounts (obb …) dahinter."""
+    lines = [l for l in _shell(adb, serial, "df -h /data").splitlines()[1:] if l.strip()]
+    return next((l for l in lines if l.split()[-1] == "/data"), lines[0] if lines else "")
 
 
 def _manufacturer(adb: str, serial: str) -> str:
@@ -86,13 +94,12 @@ def phone_info(serial) -> dict:
     if state != "device":
         return info
     focus = _foreground(adb, serial)
-    df = _shell(adb, serial, "df -h /data").splitlines()
     info.update({
         "manufacturer": _manufacturer(adb, serial),
         "model": _shell(adb, serial, "getprop ro.product.model"),
         "android": _shell(adb, serial, "getprop ro.build.version.release"),
         "uptime_seconds": _uptime_seconds(adb, serial),
-        "df_data": df[-1] if df else "",
+        "df_data": _df_data(adb, serial),
         "update_packages": _packages(adb, serial),
         OTA_SETTING: _ota_setting(adb, serial),
         "foreground": focus,

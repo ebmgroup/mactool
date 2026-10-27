@@ -346,6 +346,11 @@ def bot_config(profile_id, param: str, value, expect, dry: bool = True,
     result = {**head, "status": "ok" if ok else "reverted_or_failed", "http": status,
               "plan": plan, "before": fields, "after": after_fields, "response": _short(response)}
     if endpoint == "targeting":
+        if result["status"] != "ok" and len(_handles(new_value)) < len(_handles(current)):
+            # Belegt mac17, 27.10.: Liste von 2 auf 0 -> HTTP 200, Liste unverändert
+            result["hint"] = ("Bot-App hält einen Mindestbestand an Ziel-Accounts "
+                              "(source_property doNotAllowDeleteLessThan) — kürzer geht über "
+                              "/targeting und die Oberfläche nicht")
         targeting_after = targeting_state(profile_id)
         result["enabled_after"] = targeting_after["enabled"]
         if targeting_after["enabled"] != targeting_before["enabled"]:
