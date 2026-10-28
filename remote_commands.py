@@ -230,6 +230,17 @@ def _cmd_bot_local(args: dict) -> dict:
             "body": body if len(text) <= 60000 else text[:60000] + " …(gekürzt)"}
 
 
+def _cmd_bot_check(args: dict) -> dict:
+    """Bot-App für die Automatik prüfen (rein lesend): erreichbar, Version, Admin-Token gesetzt/
+    gültig, Supabase-Abruf an?, followunfollow.txt je Account-Ordner, Mindestbestand Ziel-Accounts.
+
+    Liefert nur Ja/Nein und Zahlen — nie Schlüssel, URLs oder Pfade.
+    """
+    import bot_local
+
+    return bot_local.bot_check()
+
+
 # ── Eingreifende Befehle (brauchen remote_allow_actions) ──────────────
 
 
@@ -649,6 +660,7 @@ HANDLERS: dict[str, tuple] = {
     "phone-log": (_cmd_phone_log, False),
     "phone-apks": (_cmd_phone_apks, False),
     "bot-local": (_cmd_bot_local, False),
+    "bot-check": (_cmd_bot_check, False),
     "phone-info": (_cmd_phone_info, False),
     # status ist lesend; off/on prüft remote_allow_actions selbst
     "samsung-updates": (_cmd_samsung_updates, False),

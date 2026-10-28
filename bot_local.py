@@ -384,3 +384,159 @@ def bot_config(profile_id, param: str, value, expect, dry: bool = True,
         if targeting_after["enabled"] != bool(enabled):
             result["status"] = "reverted_or_failed"
     return result
+
+
+# ── bot-check: Zustand der Bot-App für die Automatik (rein lesend) ────
+#
+# Meldet NUR Ja/Nein und Zahlen (plus die Versionsnummer der Bot-App) — nie Schlüssel, URLs,
+# Pfade oder Fehlermeldungen. Quellen belegt im Code der Bot-App 1.4.0.60:
+#   - Supabase-Abruf:  super.db, Tabelle `supabase`, Spalte `enableFetch` (SuperDataStoreApp,
+#     als BOOL über safe_bool gelesen). Dieselbe Zeile enthält URL + Key — gelesen wird NUR die
+#     eine Spalte.
+#   - followunfollow.txt: GramBotStorage/accounts/<user>/followunfollow.txt; wirkt nur mit genau
+#     "True"/"False" und nur bei enableFetch (SetupWriter.supabase_work_around: setzt dann die
+#     Follow-/Unfollow-/Like-Limits auf die globalen Supabase-Werte zurück).
+#   - Mindestbestand: GramBotStorage/source_property.json -> defualt_settings ->
+#     doNotAllowDeleteLessThan {enabled, value} (_shared._source_keep_guard).
+
+VERSION_RE = re.compile(r"^\d+(?:\.\d+){1,4}$")
+BOT_APP_CONSTANTS = "/Applications/BotApp.app/Contents/Resources/resources/botapp-runtime/Constants.py"
+
+
+def _storage_dir():
+    from pathlib import Path
+
+    return Path(get_config().sqlite_db_path).expanduser().parent
+
+
+def _coerce_bool(value) -> bool:
+    """Wie die Bot-App (_shared._coerce_bool / safe_parse.safe_bool)."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return str(value).strip().strip("'\"").lower() in {"1", "true", "yes", "on"}
+
+
+def bot_app_version() -> str | None:
+    """APP_VERSION der installierten Bot-App (Constants.py im Bundle).
+
+    /api/health meldet eine veraltete Zahl (A6: 1.4.0.59 bei laufender 1.4.0.60), Info.plist
+    ein verkürztes "1.4.60". Constants.py ist die Zahl, die die App selbst anzeigt.
+    """
+    from pathlib import Path
+
+    path = Path(BOT_APP_CONSTANTS)
+    try:
+        with path.open(encoding="utf-8", errors="replace") as fh:
+            head = fh.read(4000)
+    except OSError:
+        return None
+    match = re.search(r"^APP_VERSION\s*=\s*['\"]([^'\"]+)['\"]", head, re.M)
+    if match and VERSION_RE.match(match.group(1)):
+        return match.group(1)
+    return None
+
+
+def supabase_fetch_enabled(db_path=None) -> bool | None:
+    """enableFetch aus super.db (nur diese Spalte, nur lesend). None = nicht lesbar."""
+    import sqlite3
+    from pathlib import Path
+
+    path = Path(db_path or get_config().sqlite_db_path).expanduser()
+    if not path.is_file():
+        return None
+    try:
+        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=5)
+        try:
+            row = conn.execute('SELECT "enableFetch" FROM supabase WHERE id = ?', ("1",)).fetchone()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return None
+    if row is None:
+        return None
+    return _coerce_bool(row[0])
+
+
+def followunfollow_counts(storage=None) -> dict | None:
+    """Account-Ordner unter GramBotStorage/accounts: wie viele haben followunfollow.txt?
+
+    Nur dieser eine Ordner, eine Ebene tief — kein Durchsuchen des Home-Verzeichnisses.
+    `true`/`false` = Dateien mit genau diesem Inhalt (nur die greifen im SetupWriter).
+    """
+    accounts = (storage or _storage_dir()) / "accounts"
+    if not accounts.is_dir():
+        return None
+    folders = with_file = true = false = 0
+    for entry in accounts.iterdir():
+        if not entry.is_dir() or entry.is_symlink():
+            continue
+        folders += 1
+        marker = entry / "followunfollow.txt"
+        if not marker.is_file():
+            continue
+        with_file += 1
+        try:
+            text = marker.read_text(encoding="utf-8", errors="replace")[:20]
+        except OSError:
+            continue
+        true += text == "True"
+        false += text == "False"
+    return {"ordner": folders, "mit_datei": with_file, "true": true, "false": false}
+
+
+def source_keep_guard(storage=None) -> dict:
+    """doNotAllowDeleteLessThan aus der globalen source_property.json: an? Grenzwert?"""
+    import json
+
+    path = (storage or _storage_dir()) / "source_property.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"an": None, "wert": None}
+    defaults = data.get("defualt_settings") if isinstance(data, dict) else None
+    guard = defaults.get("doNotAllowDeleteLessThan") if isinstance(defaults, dict) else None
+    if not isinstance(guard, dict):
+        return {"an": False, "wert": None}
+    try:
+        value = max(0, int(float(str(guard.get("value")).replace("'", "").strip())))
+    except (TypeError, ValueError):
+        value = 0     # wie _guard_int(…, 0)
+    return {"an": _coerce_bool(guard.get("enabled")), "wert": value}
+
+
+def bot_check() -> dict:
+    """Rein lesender Überblick für die Dashboard-Automatik. Nur Ja/Nein und Zahlen."""
+    result = {"bot_app_erreichbar": None, "bot_app_version": None,
+              "admin_token_gesetzt": bool(get_config().bot_admin_token or ""),
+              "admin_token_gueltig": None, "supabase_abruf_an": None,
+              "followunfollow_txt": None, "ta_min_loeschen": None, "ta_min_loeschen_an": None,
+              "fehler": []}
+
+    def step(name, fn):
+        try:
+            return fn()
+        except Exception:      # nie die Meldung weitergeben — sie kann Pfade/Inhalte enthalten
+            result["fehler"].append(name)
+            return None
+
+    connection = step("bot_app", test_connection) or {}
+    if connection:
+        result["bot_app_erreichbar"] = bool(connection.get("ok") or connection.get("reachable"))
+        if result["admin_token_gesetzt"] and result["bot_app_erreichbar"]:
+            result["admin_token_gueltig"] = bool(connection.get("ok"))
+        if isinstance(connection.get("devices"), int):
+            result["geraete"] = connection["devices"]
+    result["bot_app_version"] = step("bot_app_version", bot_app_version)
+    result["supabase_abruf_an"] = step("supabase_abruf", supabase_fetch_enabled)
+    result["followunfollow_txt"] = step("followunfollow_txt", followunfollow_counts)
+    guard = step("ta_min_loeschen", source_keep_guard) or {}
+    result["ta_min_loeschen_an"] = guard.get("an")
+    result["ta_min_loeschen"] = guard.get("wert") if guard.get("an") else None
+    counts = result["followunfollow_txt"] or {}
+    if result["supabase_abruf_an"] is not None:
+        # Der SetupWriter dreht Limits dieser Accounts beim nächsten Rendern auf Supabase-Werte
+        result["supabase_ueberschreibt_limits"] = bool(
+            result["supabase_abruf_an"] and (counts.get("true") or counts.get("false")))
+    return result

@@ -1,4 +1,4 @@
-"""Dashboard-Automatik: bot-config, phone-info, samsung-updates, phone-reboot.
+"""Dashboard-Automatik: bot-config, bot-check, phone-info, samsung-updates, phone-reboot.
 
 Keine Bot-App und kein adb: die HTTP- bzw. Shell-Aufrufe werden durch Attrappen ersetzt,
 die mitschreiben, was gesendet worden wäre.
@@ -377,6 +377,138 @@ clock[0] = 0.0
 r = phone_control.phone_reboot("R58", dry=False, now_minutes=14 * 60)
 check("bootet nicht in 180 s -> timeout", r["status"] == "timeout" and r["after"]["seconds"] >= 180, r)
 check("phone-reboot ist eingreifend", remote_commands.HANDLERS["phone-reboot"][1] is True)
+
+
+# ── bot-check (rein lesend, nur Ja/Nein + Zahlen) ─────────────────────
+
+import json, sqlite3, tempfile
+
+SECRET_KEY, SECRET_URL = "eyJSECRETKEY123", "https://geheim.supabase.co"
+tmp = Path(tempfile.mkdtemp(prefix="botcheck-"))
+storage = tmp / "GramBotStorage"
+(storage / "accounts").mkdir(parents=True)
+
+
+def make_db(enable_fetch, with_table=True):
+    db = storage / "super.db"
+    if db.exists():
+        db.unlink()
+    conn = sqlite3.connect(db)
+    if with_table:
+        conn.execute('CREATE TABLE supabase (id TEXT PRIMARY KEY, "key" TEXT, "url" TEXT, "refresh" TEXT, '
+                     '"enabledelete" BOOL, "enableFetch" BOOL, "fetchKey" TEXT, "fetchUrl" TEXT)')
+        conn.execute("INSERT INTO supabase VALUES ('1', ?, ?, '1', 0, ?, ?, ?)",
+                     (SECRET_KEY, SECRET_URL, enable_fetch, SECRET_KEY, SECRET_URL))
+    conn.commit()
+    conn.close()
+
+
+for name, content in (("acc_true", "True"), ("acc_false", "False"), ("acc_kaputt", "True\n"), ("acc_ohne", None)):
+    (storage / "accounts" / name).mkdir()
+    if content is not None:
+        (storage / "accounts" / name / "followunfollow.txt").write_text(content)
+(storage / "accounts" / "lose_datei.txt").write_text("x")      # keine Ordner -> zählt nicht
+(storage / "source_property.json").write_text(json.dumps(
+    {"defualt_settings": {"doNotAllowDeleteLessThan": {"enabled": 1, "value": "5"}}}))
+constants = tmp / "Constants.py"
+constants.write_text('APP_VERSION = "1.4.0.60"\n\nimport os\n')
+
+
+class CheckCfg(Cfg):
+    bot_admin_token = "ADMIN-tok-geheim-9x"
+    sqlite_db_path = str(storage / "super.db")
+
+
+bot_local.get_config = lambda: CheckCfg
+bot_local.BOT_APP_CONSTANTS = str(constants)
+real_test_connection = bot_local.test_connection
+bot_local.test_connection = lambda: {"ok": True, "header": "X-API-Key", "devices": 17, "message": "ok"}
+
+make_db(1)
+r = remote_commands.execute("bot-check")
+check("bot-check ist lesend (ohne remote_allow_actions)", remote_commands.HANDLERS["bot-check"][1] is False)
+check("erreichbar + Token gesetzt + gültig", r["bot_app_erreichbar"] is True and r["admin_token_gesetzt"] is True
+      and r["admin_token_gueltig"] is True and r["geraete"] == 17, r)
+check("Version aus Constants.py", r["bot_app_version"] == "1.4.0.60", r)
+check("enableFetch 1 -> supabase_abruf_an true", r["supabase_abruf_an"] is True, r)
+check("followunfollow: 4 Ordner, 3 mit Datei, 1 True, 1 False (\"True\\n\" greift nicht)",
+      r["followunfollow_txt"] == {"ordner": 4, "mit_datei": 3, "true": 1, "false": 1}, r)
+check("Mindestbestand an, Wert 5 (Text) -> 5", r["ta_min_loeschen"] == 5 and r["ta_min_loeschen_an"] is True, r)
+check("Supabase überschreibt Limits", r["supabase_ueberschreibt_limits"] is True, r)
+check("keine Fehler", r["fehler"] == [], r)
+text = json.dumps(r)
+check("kein Schlüssel / keine URL / kein Pfad im Ergebnis",
+      SECRET_KEY not in text and "supabase.co" not in text and str(tmp) not in text and CheckCfg.bot_admin_token not in text, text)
+check("nur Ja/Nein, Zahlen, None (und die Version)", all(
+    isinstance(v, (bool, int, type(None))) or k in ("bot_app_version", "fehler", "followunfollow_txt")
+    for k, v in r.items()) and all(isinstance(v, int) for v in r["followunfollow_txt"].values()), r)
+
+for raw, want in (("True", True), ("False", False), (0, False), ("0", False), ("1", True)):
+    make_db(raw)
+    check(f"enableFetch {raw!r} -> {want}", bot_local.supabase_fetch_enabled() is want)
+make_db(1, with_table=False)
+check("ohne Tabelle supabase -> None", bot_local.supabase_fetch_enabled() is None)
+(storage / "super.db").unlink()
+check("ohne super.db -> None", bot_local.supabase_fetch_enabled() is None)
+check("ohne super.db wird keine angelegt (mode=ro)", not (storage / "super.db").exists())
+
+make_db(0)
+r = bot_local.bot_check()
+check("enableFetch aus -> überschreibt nicht", r["supabase_abruf_an"] is False
+      and r["supabase_ueberschreibt_limits"] is False, r)
+
+(storage / "source_property.json").write_text(json.dumps(
+    {"defualt_settings": {"doNotAllowDeleteLessThan": {"enabled": 0, "value": 5}}}))
+r = bot_local.bot_check()
+check("Mindestbestand aus -> null", r["ta_min_loeschen"] is None and r["ta_min_loeschen_an"] is False, r)
+(storage / "source_property.json").write_text(json.dumps({"defualt_settings": {}}))
+check("Eintrag fehlt -> aus", bot_local.source_keep_guard() == {"an": False, "wert": None})
+(storage / "source_property.json").write_text("{kaputt")
+check("Datei kaputt -> unbekannt", bot_local.source_keep_guard() == {"an": None, "wert": None})
+(storage / "source_property.json").write_text(json.dumps(
+    {"defualt_settings": {"doNotAllowDeleteLessThan": {"enabled": "true", "value": "abc"}}}))
+check("Wert unlesbar -> 0 wie die Bot-App", bot_local.source_keep_guard() == {"an": True, "wert": 0})
+
+bot_local.test_connection = lambda: {"ok": False, "message": "Bot-App lokal nicht erreichbar"}
+r = bot_local.bot_check()
+check("Bot-App aus -> erreichbar false, gültig unbekannt", r["bot_app_erreichbar"] is False
+      and r["admin_token_gueltig"] is None, r)
+bot_local.test_connection = lambda: {"ok": False, "reachable": True, "tried": {"X-API-Key": 401}}
+r = bot_local.bot_check()
+check("Token abgelehnt -> gültig false", r["bot_app_erreichbar"] is True and r["admin_token_gueltig"] is False, r)
+
+
+class NoToken(CheckCfg):
+    bot_admin_token = ""
+
+
+bot_local.get_config = lambda: NoToken
+bot_local.test_connection = lambda: {"ok": False, "reachable": True, "message": "kein Admin-Token"}
+r = bot_local.bot_check()
+check("kein Token -> gesetzt false, gültig unbekannt", r["admin_token_gesetzt"] is False
+      and r["admin_token_gueltig"] is None, r)
+bot_local.get_config = lambda: CheckCfg
+
+
+def boom():
+    raise RuntimeError(f"geheim {SECRET_KEY} in {tmp}")
+
+
+bot_local.test_connection = boom
+r = bot_local.bot_check()
+check("Fehler: nur der Name, nie die Meldung", r["fehler"] == ["bot_app"] and SECRET_KEY not in json.dumps(r)
+      and r["bot_app_erreichbar"] is None, r)
+bot_local.BOT_APP_CONSTANTS = str(tmp / "fehlt.py")
+check("Bot-App nicht installiert -> Version None", bot_local.bot_app_version() is None)
+constants.write_text('APP_VERSION = "1.4.0.60; rm -rf"\n')
+bot_local.BOT_APP_CONSTANTS = str(constants)
+check("seltsame Version wird nicht weitergegeben", bot_local.bot_app_version() is None)
+import shutil
+shutil.rmtree(storage / "accounts")
+check("ohne accounts-Ordner -> None", bot_local.followunfollow_counts() is None)
+bot_local.test_connection = real_test_connection
+bot_local.get_config = lambda: Cfg
+shutil.rmtree(tmp)
 
 print()
 if failures:

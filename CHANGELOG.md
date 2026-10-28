@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.0.160 — 2026-10-28
+- Neu: `bot-check` (rein lesend, ohne `remote_allow_actions`): Zustand der Bot-App für die
+  Dashboard-Automatik. Liefert nur Ja/Nein und Zahlen (plus die Bot-App-Version), nie Schlüssel,
+  URLs, Pfade oder Fehlertexte (bei Fehlern nur der Name der Prüfung in `fehler`):
+  - `bot_app_erreichbar`, `bot_app_version` (APP_VERSION aus Constants.py im Bundle — /api/health
+    meldet eine veraltete Zahl), `geraete`
+  - `admin_token_gesetzt`, `admin_token_gueltig` (lesender GET /api/devices mit dem Token)
+  - `supabase_abruf_an`: nur die Spalte `enableFetch` aus super.db › `supabase` (read-only)
+  - `followunfollow_txt`: `ordner` / `mit_datei` / `true` / `false` unter GramBotStorage/accounts
+    (eine Ebene, sonst nichts durchsucht); `supabase_ueberschreibt_limits`, wenn enableFetch an ist
+    und mindestens eine Datei genau „True“/„False“ enthält (SetupWriter-Workaround)
+  - `ta_min_loeschen` (Grenzwert oder null) und `ta_min_loeschen_an` aus
+    GramBotStorage/source_property.json › `defualt_settings.doNotAllowDeleteLessThan`
+
 ## v1.0.159 — 2026-10-27
 - `bot-config blogger-followers`: der Schalter der Ziel-Quelle wird nicht mehr blind aus
   `profile.targeting.read` übernommen. Ein FEHLENDER `target-source-state`-Eintrag liest sich dort
