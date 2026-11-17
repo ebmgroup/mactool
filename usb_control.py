@@ -35,6 +35,8 @@ APP_DIR = Path(__file__).parent
 PORTS_FILE = APP_DIR / "usb_ports.json"
 SERIAL_RE = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
 UHUBCTL_PATHS = ("/opt/homebrew/bin/uhubctl", "/usr/local/bin/uhubctl")
+BREW_PATHS = ("/opt/homebrew/bin/brew", "/usr/local/bin/brew")
+INSTALL_TIMEOUT = 600
 
 ADB_WAIT = 20          # Sekunden nach adb reconnect
 POWER_WAIT = 90        # Sekunden nach dem Stromlos-Schalten (Phone meldet sich neu an)
@@ -138,6 +140,35 @@ def parse_uhubctl(text: str) -> list[dict]:
                 "serial": dev.split()[-1] if len(dev.split()) >= 2 else None,
             })
     return hubs
+
+
+def find_brew() -> str | None:
+    return shutil.which("brew") or next((p for p in BREW_PATHS if Path(p).exists()), None)
+
+
+def uhubctl_install(dry: bool = True) -> dict:
+    """uhubctl per Homebrew installieren (nur dieses eine Paket, kein freier Name)."""
+    existing = find_uhubctl()
+    brew = find_brew()
+    head = {"uhubctl_vorher": existing, "brew": brew, "plan": [f"{brew or 'brew'} install uhubctl"]}
+    if existing:
+        return {**head, "status": "unchanged"}
+    if not brew:
+        return {**head, "status": "refused", "reasons": ["Homebrew ist auf diesem Mac nicht installiert"]}
+    if dry:
+        return {**head, "status": "dry", "note": "würde uhubctl installieren"}
+    import os
+    env = {**os.environ, "HOMEBREW_NO_AUTO_UPDATE": "1", "HOMEBREW_NO_INSTALL_CLEANUP": "1",
+           "HOMEBREW_NO_ENV_HINTS": "1", "NONINTERACTIVE": "1"}
+    try:
+        r = _run([brew, "install", "uhubctl"], capture_output=True, text=True, timeout=INSTALL_TIMEOUT, env=env)
+        code, out = r.returncode, ((r.stdout or "") + (r.stderr or "")).strip()
+    except subprocess.TimeoutExpired:
+        code, out = -1, "timeout"
+    after = find_uhubctl()
+    logger.info(f"uhubctl-install: exit {code}, {after or 'nicht da'}")
+    return {**head, "status": "ok" if after else "failed", "exit": code, "ausgabe": out[-1500:],
+            "uhubctl_nachher": after, "liste": uhubctl_list(after) if after else None}
 
 
 def uhubctl_list(path: str | None) -> dict:
@@ -247,6 +278,7 @@ def usb_info() -> dict:
         "adb": states,
         "adb_nicht_im_usb_baum": sorted(s for s in states if s not in phones_in_tree),
         "uhubctl": hub,
+        "brew": find_brew(),
         "port_zuordnung": load_ports(),
     }
 

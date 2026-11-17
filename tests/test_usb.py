@@ -170,6 +170,28 @@ accounts()
 r = usb_control.phone_reconnect("R58M1", dry=False, stufe="strom", aus_sekunden=9, now_minutes=NOON)
 check("aus_sekunden auf 5 begrenzt", f.ran("-d 5") and r["status"] == "ok", r)
 
+print("uhubctl-install")
+f = use(Fake(uhub_installed=False))
+usb_control.find_brew = lambda: "/opt/homebrew/bin/brew"
+r = usb_control.uhubctl_install()
+check("ohne dry=false nur Probe", r["status"] == "dry" and not f.ran("brew"), r)
+state = {"da": False}
+def fake_install(cmd, **kw):
+    f.calls.append(cmd)
+    state["da"] = True
+    return subprocess.CompletedProcess(cmd, 0, "installed", "")
+usb_control._run = fake_install
+usb_control.find_uhubctl = lambda: "/opt/homebrew/bin/uhubctl" if state["da"] else None
+r = usb_control.uhubctl_install(dry=False)
+brew = [c for c in f.calls if "brew" in c[0]]
+check("installiert genau uhubctl", r["status"] == "ok" and brew == [["/opt/homebrew/bin/brew", "install", "uhubctl"]], (r, brew))
+r = usb_control.uhubctl_install(dry=False)
+check("schon da -> unchanged", r["status"] == "unchanged", r)
+usb_control.find_uhubctl = lambda: None
+usb_control.find_brew = lambda: None
+check("ohne Homebrew -> refused", usb_control.uhubctl_install(dry=False)["status"] == "refused")
+check("uhubctl-install ist eingreifend", remote_commands.HANDLERS["uhubctl-install"][1] is True)
+
 Cfg.remote_allow_actions = False
 try:
     remote_commands.execute("phone-reconnect", {"serial": "R58M1"})

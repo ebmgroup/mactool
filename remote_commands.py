@@ -341,6 +341,13 @@ def _cmd_phone_reconnect(args: dict) -> dict:
                     args.get("aus_sekunden") or usb_control.DEFAULT_OFF_SECONDS)
 
 
+def _cmd_uhubctl_install(args: dict) -> dict:
+    """uhubctl per Homebrew installieren (für phone-reconnect Stufe strom). Ohne dry=false nur Probe."""
+    import usb_control
+
+    return _rollout(usb_control.uhubctl_install, _dry(args))
+
+
 def _cmd_apk_fetch(args: dict) -> dict:
     """Release aus dem Bucket apk holen und prüfen (schreibt nur auf dem Mac)."""
     import apk_rollout
@@ -704,6 +711,7 @@ HANDLERS: dict[str, tuple] = {
     "bot-config": (_cmd_bot_config, True),
     "phone-reboot": (_cmd_phone_reboot, True),
     "phone-reconnect": (_cmd_phone_reconnect, True),
+    "uhubctl-install": (_cmd_uhubctl_install, True),
 }
 
 # Befehle, nach denen sich der Prozess selbst beendet — das Ergebnis muss

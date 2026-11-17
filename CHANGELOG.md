@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.162 — 2026-11-17
+- Neu: `uhubctl-install [dry=false]` (eingreifend): installiert genau das Paket `uhubctl` per
+  Homebrew (ohne Auto-Update), Voraussetzung für `phone-reconnect` Stufe strom. Ohne Homebrew
+  verweigert, schon installiert = unchanged. Danach gleich die uhubctl-Liste im Ergebnis.
+- `usb-info` meldet zusätzlich, ob Homebrew vorhanden ist (`brew`).
+- Befund mac17: Hubs mit Genesys Logic GL3523 (05e3:0610 USB 2 / 05e3:0626 USB 3), kaskadiert.
+
 ## v1.0.161 — 2026-11-17
 - Neu: `usb-info` (rein lesend): USB-Baum aus system_profiler (Hubs, Geräte mit Seriennummer),
   adb-Zustände, und — falls `uhubctl` installiert ist — je Hub ppps (Ports einzeln schaltbar) /
