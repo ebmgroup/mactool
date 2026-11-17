@@ -183,7 +183,7 @@ def fake_install(cmd, **kw):
 usb_control._run = fake_install
 usb_control.find_uhubctl = lambda: "/opt/homebrew/bin/uhubctl" if state["da"] else None
 r = usb_control.uhubctl_install(dry=False)
-brew = [c for c in f.calls if "brew" in c[0]]
+brew = [c for c in f.calls if c[0].endswith("/brew")]
 check("installiert genau uhubctl", r["status"] == "ok" and brew == [["/opt/homebrew/bin/brew", "install", "uhubctl"]], (r, brew))
 r = usb_control.uhubctl_install(dry=False)
 check("schon da -> unchanged", r["status"] == "unchanged", r)
