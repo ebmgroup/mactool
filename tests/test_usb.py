@@ -170,6 +170,32 @@ accounts()
 r = usb_control.phone_reconnect("R58M1", dry=False, stufe="strom", aus_sekunden=9, now_minutes=NOON)
 check("aus_sekunden auf 5 begrenzt", f.ran("-d 5") and r["status"] == "ok", r)
 
+print("Hubs ohne Port-Schaltung (nur mit -f)")
+NOPS = """Current status for hub 1-1.2 [05e3:0610 GenesysLogic USB2.1 Hub, USB 2.10, 4 ports, nops]
+  Port 2: 0103 power enable connect [04e8:6860 SAMSUNG SAMSUNG_Android R58NOPS]
+"""
+class FakeNops(Fake):
+    def __call__(self, cmd, **kw):
+        if cmd[0].endswith("uhubctl") and cmd[1:] == []:
+            self.calls.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0, "No compatible devices detected!", "")
+        if cmd[0].endswith("uhubctl") and cmd[1:] == ["-f"]:
+            self.calls.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0, NOPS, "")
+        return super().__call__(cmd, **kw)
+accounts()
+f = use(FakeNops(devices="R58NOPS\toffline\n", responds_after="cycle"))
+info = usb_control.usb_info()
+check("Liste mit -f, als erzwungen markiert", info["uhubctl"]["hubs"][0]["erzwungen"] is True and info["port_zuordnung"]["R58NOPS"]["port"] == 2, info["uhubctl"])
+check("usb-info schaltet nichts", not f.ran("-a cycle"), f.calls)
+r = usb_control.phone_reconnect("R58NOPS", dry=False, now_minutes=NOON)
+check("ohne erzwingen kein Strom", not f.ran("-a cycle") and "erzwingen" in r["strom_hinweis"], r)
+r = usb_control.phone_reconnect("R58NOPS", dry=False, now_minutes=NOON, erzwingen=True)
+check("mit erzwingen: uhubctl -f -l … cycle", r["status"] == "ok" and f.ran("uhubctl -f -l 1-1.2 -p 2 -a cycle -d 3"), (r, f.calls))
+f = use(FakeNops(devices="R58NOPS\toffline\n"))
+remote_commands.execute("phone-reconnect", {"serial": "R58NOPS", "erzwingen": "true"})
+check("Fernbefehl ohne dry=false bleibt Probe, auch mit erzwingen", not f.ran("-a cycle"), f.calls)
+
 print("uhubctl-install")
 f = use(Fake(uhub_installed=False))
 usb_control.find_brew = lambda: "/opt/homebrew/bin/brew"

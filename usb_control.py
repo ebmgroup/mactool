@@ -177,9 +177,20 @@ def uhubctl_list(path: str | None) -> dict:
     code, version = _exec([path, "-v"], timeout=10)
     code, out = _exec([path], timeout=30)
     hubs = parse_uhubctl(out)
+    for h in hubs:
+        h["erzwungen"] = False
     res = {"installed": True, "path": path, "version": version[:40], "hubs": hubs}
     if not hubs:
-        res["output"] = out[-1500:]
+        # Hubs, die keine Port-Schaltung melden (z. B. Genesys GL3523 auf mac17), listet uhubctl nur
+        # mit -f. Die Liste selbst ist auch mit -f rein lesend.
+        res["output"] = out[-600:]
+        code, out = _exec([path, "-f"], timeout=30)
+        forced = parse_uhubctl(out)
+        for h in forced:
+            h["erzwungen"] = True
+        res["hubs"] = forced
+        if not forced:
+            res["output_f"] = out[-600:]
     return res
 
 
@@ -201,7 +212,9 @@ def remember_ports(hubs: list[dict]) -> dict:
         for port in hub["ports"]:
             if port.get("serial"):
                 ports[port["serial"]] = {"location": hub["location"], "port": port["port"],
-                                         "ppps": hub["ppps"], "vid_pid": hub["vid_pid"], "seen": now}
+                                         "ppps": hub["ppps"], "ganged": hub["ganged"],
+                                         "erzwungen": hub.get("erzwungen", False),
+                                         "vid_pid": hub["vid_pid"], "seen": now}
     try:
         PORTS_FILE.write_text(json.dumps(ports, indent=1, sort_keys=True))
     except OSError as e:
@@ -287,14 +300,19 @@ def _port_for(serial: str, hub: dict) -> dict | None:
     for h in hub.get("hubs") or []:
         for p in h["ports"]:
             if p.get("serial") == serial:
-                return {"location": h["location"], "port": p["port"], "ppps": h["ppps"], "quelle": "jetzt"}
+                return {"location": h["location"], "port": p["port"], "ppps": h["ppps"], "ganged": h["ganged"],
+                        "erzwungen": h.get("erzwungen", False), "quelle": "jetzt"}
     known = load_ports().get(serial)
     return {**known, "quelle": "gemerkt"} if known else None
 
 
 def phone_reconnect(serial, dry: bool = True, stufe: str = "auto", aus_sekunden=DEFAULT_OFF_SECONDS,
-                    now_minutes: int | None = None) -> dict:
-    """GENAU EIN Phone neu verbinden. stufe: auto (adb, dann Strom) / adb / strom."""
+                    now_minutes: int | None = None, erzwingen: bool = False) -> dict:
+    """GENAU EIN Phone neu verbinden. stufe: auto (adb, dann Strom) / adb / strom.
+
+    erzwingen=true: auch an Hubs, die keine Port-Schaltung melden (uhubctl -f). Ob dort der Port
+    wirklich aus- und wieder angeht, muss je Hub-Typ erst getestet werden — nie Standard.
+    """
     from device_monitor import _batch_update_supabase_status
     from ig_worker import _phone_lock
     from phone_control import reboot_blockers
@@ -335,10 +353,13 @@ def phone_reconnect(serial, dry: bool = True, stufe: str = "auto", aus_sekunden=
             power_note = "uhubctl ist auf diesem Mac nicht installiert"
         elif not port:
             power_note = "Port des Phones unbekannt (an keinem schaltbaren Hub gesehen)"
-        elif not port.get("ppps"):
+        elif port.get("ganged"):
             power_note = f"Hub {port['location']} schaltet nur alle Ports gemeinsam (ganged)"
+        elif (port.get("erzwungen") or not port.get("ppps")) and not erzwingen:
+            power_note = f"Hub {port['location']} meldet keine Port-Schaltung — nur mit erzwingen=true (uhubctl -f)"
         else:
-            plan.append(f"uhubctl -l {port['location']} -p {port['port']} -a cycle -d {off}"
+            force = port.get("erzwungen") or not port.get("ppps")
+            plan.append(f"uhubctl{' -f' if force else ''} -l {port['location']} -p {port['port']} -a cycle -d {off}"
                         + (" (nur falls adb nicht reicht)" if stufe == "auto" else ""))
     head = {
         "serial": serial, "stufe": stufe, "adb_vorher": listed or "nicht gelistet", "antwortet_vorher": ok_before,
@@ -364,7 +385,8 @@ def phone_reconnect(serial, dry: bool = True, stufe: str = "auto", aus_sekunden=
             ok, secs = _wait_responds(adb, serial, ADB_WAIT)
             steps.append({"schritt": "adb reconnect", "ausgabe": out[-200:], "antwortet": ok, "sekunden": secs})
         if not ok and stufe in ("auto", "strom") and not power_note:
-            code, out = _exec([hub_path, "-l", str(port["location"]), "-p", str(port["port"]),
+            force = ["-f"] if (port.get("erzwungen") or not port.get("ppps")) else []
+            code, out = _exec([hub_path, *force, "-l", str(port["location"]), "-p", str(port["port"]),
                                "-a", "cycle", "-d", str(off)], timeout=30 + off)
             step = {"schritt": f"Port {port['location']}:{port['port']} {off} s stromlos",
                     "exit": code, "ausgabe": out[-400:]}

@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.163 — 2026-11-17
+- `usb-info`/`phone-reconnect`: findet uhubctl ohne `-f` keinen Hub („No compatible devices“, so
+  bei den Genesys-GL3523-Hubs auf mac17), wird die Liste mit `-f` geholt (weiter rein lesend) und
+  die Hubs als `erzwungen` markiert.
+- `phone-reconnect erzwingen=true`: Port-Schaltung auch an solchen Hubs (`uhubctl -f`). Nie
+  Standard; ganged-Hubs bleiben immer verweigert.
+
 ## v1.0.162 — 2026-11-17
 - Neu: `uhubctl-install [dry=false]` (eingreifend): installiert genau das Paket `uhubctl` per
   Homebrew (ohne Auto-Update), Voraussetzung für `phone-reconnect` Stufe strom. Ohne Homebrew

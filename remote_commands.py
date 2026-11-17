@@ -338,7 +338,8 @@ def _cmd_phone_reconnect(args: dict) -> dict:
     import usb_control
 
     return _rollout(usb_control.phone_reconnect, args.get("serial"), _dry(args), args.get("stufe") or "auto",
-                    args.get("aus_sekunden") or usb_control.DEFAULT_OFF_SECONDS)
+                    args.get("aus_sekunden") or usb_control.DEFAULT_OFF_SECONDS, None,
+                    str(args.get("erzwingen", "")).lower() in ("true", "1", "ja"))
 
 
 def _cmd_uhubctl_install(args: dict) -> dict:
