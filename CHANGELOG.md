@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.0.164 — 2026-11-17
+- Befund mac17: alle Genesys-Hubs melden sich bei uhubctl als `ganged`.
+- `phone-reconnect erzwingen=true` jetzt auch an ganged-Hubs (`uhubctl -f`): laut USB-Spezifikation
+  geht dabei nur dieser Port logisch aus, der Strom bleibt, solange die Nachbarports an sind.
+  Zur Sicherheit gelten die Schutzregeln auch für die Nachbar-Phones am selben Hub
+  (`nachbarn_am_hub`; laufender Account / Zeitfenster in ≤ 15 min / IG-Update → refused).
+- uhubctl-Liste: Ports vorgeschalteter Hubs („[ganged]“) liefern keine Seriennummer mehr.
+
 ## v1.0.163 — 2026-11-17
 - `usb-info`/`phone-reconnect`: findet uhubctl ohne `-f` keinen Hub („No compatible devices“, so
   bei den Genesys-GL3523-Hubs auf mac17), wird die Liste mit `-f` geholt (weiter rein lesend) und

@@ -137,7 +137,8 @@ def parse_uhubctl(text: str) -> list[dict]:
                 "flags": re.sub(r"\[.*\]", "", rest).split(),
                 "device": dev,
                 # „[04e8:6860 SAMSUNG SAMSUNG_Android R58M…]“: die Seriennummer steht zuletzt
-                "serial": dev.split()[-1] if len(dev.split()) >= 2 else None,
+                # Ports eines vorgeschalteten Hubs zeigen nur „[ganged]“ — keine Seriennummer.
+                "serial": dev.split()[-1] if re.match(r"^[0-9a-fA-F]{4}:[0-9a-fA-F]{4} \S", dev) and len(dev.split()) >= 3 else None,
             })
     return hubs
 
@@ -344,6 +345,20 @@ def phone_reconnect(serial, dry: bool = True, stufe: str = "auto", aus_sekunden=
     if lock.locked():
         reasons.append("auf dem Phone läuft gerade ein Instagram-Update")
 
+    # Ganged-Hub: falls der Hub doch alle Ports mitschaltet, träfe es die Nachbarn am selben Hub.
+    # Darum gelten deren Schutzregeln mit (laufender Account / Zeitfenster gleich / IG-Update).
+    nachbarn = []
+    if port and port.get("ganged") and erzwingen and stufe in ("auto", "strom"):
+        for h in hub.get("hubs") or []:
+            if h["location"] == port["location"]:
+                nachbarn = [p["serial"] for p in h["ports"] if p.get("serial") and p["serial"] != serial]
+        for n in nachbarn:
+            if _phone_lock(n).locked():
+                reasons.append(f"Nachbar {n}: Instagram-Update läuft")
+            if responds(adb, n):
+                n_reasons, _ = reboot_blockers(n, now_minutes)
+                reasons += [f"Nachbar {n} am selben Hub: {r}" for r in n_reasons]
+
     plan = []
     if stufe in ("auto", "adb"):
         plan.append(f"adb -s {serial} reconnect" if listed else "adb reconnect entfällt (adb listet das Phone nicht)")
@@ -353,8 +368,9 @@ def phone_reconnect(serial, dry: bool = True, stufe: str = "auto", aus_sekunden=
             power_note = "uhubctl ist auf diesem Mac nicht installiert"
         elif not port:
             power_note = "Port des Phones unbekannt (an keinem schaltbaren Hub gesehen)"
-        elif port.get("ganged"):
-            power_note = f"Hub {port['location']} schaltet nur alle Ports gemeinsam (ganged)"
+        elif port.get("ganged") and not erzwingen:
+            power_note = (f"Hub {port['location']} ist ganged — nur mit erzwingen=true (schaltet laut USB-Spezifikation "
+                          "nur diesen Port logisch ab, der Strom bleibt an, solange die anderen Ports an sind)")
         elif (port.get("erzwungen") or not port.get("ppps")) and not erzwingen:
             power_note = f"Hub {port['location']} meldet keine Port-Schaltung — nur mit erzwingen=true (uhubctl -f)"
         else:
@@ -363,7 +379,7 @@ def phone_reconnect(serial, dry: bool = True, stufe: str = "auto", aus_sekunden=
                         + (" (nur falls adb nicht reicht)" if stufe == "auto" else ""))
     head = {
         "serial": serial, "stufe": stufe, "adb_vorher": listed or "nicht gelistet", "antwortet_vorher": ok_before,
-        "port": port, "plan": plan, "strom_hinweis": power_note,
+        "port": port, "nachbarn_am_hub": nachbarn, "plan": plan, "strom_hinweis": power_note,
         "accounts": [{k: a.get(k) for k in ("username", "runState", "timeSlot")} for a in accounts],
     }
     if reasons:

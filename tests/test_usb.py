@@ -196,6 +196,40 @@ f = use(FakeNops(devices="R58NOPS\toffline\n"))
 remote_commands.execute("phone-reconnect", {"serial": "R58NOPS", "erzwingen": "true"})
 check("Fernbefehl ohne dry=false bleibt Probe, auch mit erzwingen", not f.ran("-a cycle"), f.calls)
 
+print("ganged mit erzwingen")
+GANGED = """Current status for hub 2-1.2 [05e3:0610 GenesysLogic USB2.1 Hub, USB 2.10, 4 ports, ganged]
+  Port 3: 0503 power highspeed enable connect [04e8:6860 SAMSUNG SAMSUNG_Android NACHBAR1]
+  Port 4: 0503 power highspeed enable connect [04e8:6860 SAMSUNG SAMSUNG_Android TESTPHONE]
+Current status for hub 2-1 [05e3:0610 GenesysLogic USB2.1 Hub, USB 2.10, 4 ports, ganged]
+  Port 1: 0503 power highspeed enable connect [ganged]
+"""
+check("[ganged] ist keine Seriennummer", [p["serial"] for h in usb_control.parse_uhubctl(GANGED) for p in h["ports"]] == ["NACHBAR1", "TESTPHONE", None])
+class FakeGanged(Fake):
+    def __init__(self, nachbar_antwortet=True, **kw):
+        super().__init__(uhub=GANGED, **kw)
+        self.nachbar = nachbar_antwortet
+    def __call__(self, cmd, **kw):
+        if cmd[0] == "adb" and len(cmd) > 3 and cmd[2] == "NACHBAR1" and cmd[3:] == ["shell", "echo", "ok"]:
+            self.calls.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0 if self.nachbar else 1, "ok" if self.nachbar else "", "")
+        return super().__call__(cmd, **kw)
+def profiles_by(mapping):
+    bot_local.device_profiles = lambda serial, token=None: [dict(i) for i in mapping.get(serial, [])]
+profiles_by({"NACHBAR1": [{"username": "kunde", "runState": "running", "timeSlot": "10:00-11:59"}]})
+f = use(FakeGanged(devices="", responds_after="cycle"))
+r = usb_control.phone_reconnect("TESTPHONE", dry=False, stufe="strom", now_minutes=NOON)
+check("ganged ohne erzwingen -> refused", r["status"] == "refused" and not f.ran("-a cycle"), r)
+r = usb_control.phone_reconnect("TESTPHONE", dry=False, stufe="strom", now_minutes=NOON, erzwingen=True)
+check("Nachbar fährt Account -> refused", r["status"] == "refused" and r["nachbarn_am_hub"] == ["NACHBAR1"] and not f.ran("-a cycle"), r)
+profiles_by({"NACHBAR1": [{"username": "kunde", "runState": "finished", "timeSlot": "20:00-21:59"}]})
+r = usb_control.phone_reconnect("TESTPHONE", dry=False, stufe="strom", now_minutes=NOON, erzwingen=True)
+check("Nachbar frei -> uhubctl -f am ganged Port", r["status"] == "ok" and f.ran("uhubctl -f -l 2-1.2 -p 4 -a cycle"), r)
+profiles_by({"NACHBAR1": [{"username": "kunde", "runState": "running", "timeSlot": "10:00-11:59"}]})
+f = use(FakeGanged(nachbar_antwortet=False, devices="", responds_after="cycle"))
+r = usb_control.phone_reconnect("TESTPHONE", dry=False, stufe="strom", now_minutes=NOON, erzwingen=True)
+check("Nachbar antwortet selbst nicht -> kein Hindernis", r["status"] == "ok", r)
+accounts()
+
 print("uhubctl-install")
 f = use(Fake(uhub_installed=False))
 usb_control.find_brew = lambda: "/opt/homebrew/bin/brew"
