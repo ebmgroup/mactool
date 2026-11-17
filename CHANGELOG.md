@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.0.161 — 2026-11-17
+- Neu: `usb-info` (rein lesend): USB-Baum aus system_profiler (Hubs, Geräte mit Seriennummer),
+  adb-Zustände, und — falls `uhubctl` installiert ist — je Hub ppps (Ports einzeln schaltbar) /
+  ganged und welches Phone an welchem Port steckt. Die Zuordnung wird in `usb_ports.json` gemerkt.
+- Neu: `phone-reconnect serial=<s> [stufe=auto|adb|strom] [aus_sekunden=2–5] [dry=false]`
+  (eingreifend, Devicekontrolle im Dashboard): GENAU EIN Phone neu verbinden.
+  1. `adb -s <s> reconnect` (nur wenn adb das Phone noch listet), 20 s auf Antwort warten
+  2. reicht das nicht: USB-Port per `uhubctl … -a cycle -d <s>` kurz stromlos, max 90 s warten —
+     nur an ppps-Hubs (ganged würde alle Ports des Hubs ausschalten → verweigert), auch mit dem
+     gemerkten Port, wenn das Phone schon ganz aus dem USB-Baum verschwunden ist
+  - verweigert, solange ein Account des Phones läuft oder sein Zeitfenster in ≤ 15 min beginnt —
+    aber nur, wenn das Phone noch antwortet (sonst läuft dort ohnehin nichts)
+  - meldet den frischen adb_status sofort an die Kontrolle (nicht erst beim stündlichen Monitor)
+  - ohne `dry=false` nur Probe mit Plan
+
 ## v1.0.160 — 2026-10-28
 - Neu: `bot-check` (rein lesend, ohne `remote_allow_actions`): Zustand der Bot-App für die
   Dashboard-Automatik. Liefert nur Ja/Nein und Zahlen (plus die Bot-App-Version), nie Schlüssel,

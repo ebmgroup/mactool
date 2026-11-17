@@ -38,3 +38,4 @@ apk_stage/
 supabase/.temp/
 ig_bot_pause.json
 ig_stopped_accounts.json
+usb_ports.json

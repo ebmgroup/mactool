@@ -322,6 +322,25 @@ def _cmd_phone_reboot(args: dict) -> dict:
     return _rollout(phone_control.phone_reboot, args.get("serial"), _dry(args))
 
 
+def _cmd_usb_info(args: dict) -> dict:
+    """USB der Phones (nur lesend): Hubs aus system_profiler, adb-Zustände, uhubctl-Ports."""
+    import usb_control
+
+    return _rollout(usb_control.usb_info)
+
+
+def _cmd_phone_reconnect(args: dict) -> dict:
+    """GENAU EIN Phone neu verbinden: adb reconnect, sonst USB-Port kurz stromlos (uhubctl).
+
+    stufe=auto|adb|strom, aus_sekunden=2–5; verweigert, solange ein Account des (antwortenden)
+    Phones läuft/gleich startet. Ohne dry=false nur Probe.
+    """
+    import usb_control
+
+    return _rollout(usb_control.phone_reconnect, args.get("serial"), _dry(args), args.get("stufe") or "auto",
+                    args.get("aus_sekunden") or usb_control.DEFAULT_OFF_SECONDS)
+
+
 def _cmd_apk_fetch(args: dict) -> dict:
     """Release aus dem Bucket apk holen und prüfen (schreibt nur auf dem Mac)."""
     import apk_rollout
@@ -662,6 +681,7 @@ HANDLERS: dict[str, tuple] = {
     "bot-local": (_cmd_bot_local, False),
     "bot-check": (_cmd_bot_check, False),
     "phone-info": (_cmd_phone_info, False),
+    "usb-info": (_cmd_usb_info, False),
     # status ist lesend; off/on prüft remote_allow_actions selbst
     "samsung-updates": (_cmd_samsung_updates, False),
     "warnings": (_cmd_warnings, False),
@@ -683,6 +703,7 @@ HANDLERS: dict[str, tuple] = {
     "bot-profile": (_cmd_bot_profile, True),
     "bot-config": (_cmd_bot_config, True),
     "phone-reboot": (_cmd_phone_reboot, True),
+    "phone-reconnect": (_cmd_phone_reconnect, True),
 }
 
 # Befehle, nach denen sich der Prozess selbst beendet — das Ergebnis muss
