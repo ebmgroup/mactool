@@ -33,7 +33,9 @@ ALT = "IA reduziert bis 23.11. - A! UNFOLLOW FIRST - x@y.de | Light - c23/08/202
 
 
 class FakeBot:
-    def __init__(self, name=ALT, status=200, wirkt=True, platform="instagram"):
+    def __init__(self, name=ALT, status=200, wirkt=True, platform="instagram", ohne_etag=False):
+        self.etag = '"profile-24-abc"'
+        self.ohne_etag = ohne_etag
         self.profile = {"id": "24", "username": "kaumgesehen", "platform": platform, "runState": "finished",
                         "customName": name}
         self.status, self.wirkt = status, wirkt
@@ -44,13 +46,16 @@ class FakeBot:
         assert path == "/api/profiles/24", path
         return 200, {"ok": True, "profile": copy.deepcopy(self.profile)}
 
-    def v1_patch(self, path, token, payload, idem, dry):
-        self.patches.append({"path": path, "payload": payload, "idem": idem, "dry": dry})
-        if self.status == 200 and not dry and self.wirkt:
-            self.profile["customName"] = payload["custom_name"]
+    def v1_patch(self, path, token, payload, idem, dry, if_match=None):
+        self.patches.append({"path": path, "payload": payload, "idem": idem, "dry": dry, "if_match": if_match})
         if self.status != 200:
             return self.status, {"ok": False, "error": {"code": "legacy_key_not_allowed_on_v1"}}
-        return 200, {"ok": True, "dry_run": dry}
+        if not dry and if_match != self.etag:
+            # wie die Bot-App: ohne If-Match 428, mit veraltetem 412
+            return (428 if not if_match else 412), {"code": "missing_if_match" if not if_match else "precondition_failed"}
+        if not dry and self.wirkt:
+            self.profile["customName"] = payload["custom_name"]
+        return 200, {"ok": True, "etag": self.etag if dry and not self.ohne_etag else None}
 
 
 def use(bot):
@@ -100,8 +105,14 @@ check("Idempotenz-Schlüssel gesetzt", len(bot.patches[0]["idem"]) == 40, bot.pa
 
 bot = use(FakeBot())
 r = remote_commands._cmd_bot_custom_name({"profile": "24", "value": "NEU | Pro", "expect": ALT, "dry": "false"})
-check("dry=false -> ok, nachgelesen", r["status"] == "ok" and r["after"] == "NEU | Pro"
-      and bot.patches[0]["dry"] is False, r)
+check("dry=false -> erst Probelauf, dann mit If-Match gespeichert, nachgelesen",
+      r["status"] == "ok" and r["after"] == "NEU | Pro" and [x["dry"] for x in bot.patches] == [True, False]
+      and bot.patches[1]["if_match"] == '"profile-24-abc"' and bot.patches[0]["idem"] != bot.patches[1]["idem"], (r, bot.patches))
+
+bot = use(FakeBot(ohne_etag=True))
+r = bot_local.custom_name("24", "NEU | Pro", ALT, dry=False)
+check("Probelauf ohne ETag -> refused, kein echtes Speichern", r["status"] == "refused"
+      and [x["dry"] for x in bot.patches] == [True], (r, bot.patches))
 
 bot = use(FakeBot(wirkt=False))
 r = bot_local.custom_name("24", "NEU | Pro", ALT, dry=False)

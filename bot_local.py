@@ -390,7 +390,10 @@ def bot_config(profile_id, param: str, value, expect, dry: bool = True,
 #
 # Weg: die öffentliche Schnittstelle der Bot-App, lokal aufgerufen —
 #   PATCH /v1/profiles/{id}/settings?dry_run=true|false   {"custom_name": "…"}
-# (OpenAPI der Bot-App, Schema SettingsPatch; Pflicht-Kopfzeile X-Idempotency-Key). /v1 nimmt nur
+# (OpenAPI der Bot-App, Schema SettingsPatch; Pflicht-Kopfzeile X-Idempotency-Key). Echtes Speichern
+# verlangt zusaetzlich If-Match mit dem ETag des Profils (sonst HTTP 428 missing_if_match, belegt mac17
+# 23.11.) — den liefert der Probelauf im Feld `etag`. Ablauf deshalb immer: Probelauf, dann mit If-Match
+# speichern; hat sich das Profil dazwischen geaendert, lehnt die Bot-App mit 412 ab. /v1 nimmt nur
 # einen API-Schlüssel (ak_live…) mit Recht settings:write, nicht den Admin-Schlüssel. Der Probelauf
 # (dry) geht ebenfalls an die Bot-App (dry_run=true) und prüft damit auch Schlüssel und Recht.
 # Vorher wird der aktuelle Name mit `expect` verglichen (kein Konfliktschutz in der Bot-App), hinterher
@@ -405,11 +408,14 @@ def _clean_name(value) -> str:
     return re.sub(r" {2,}", " ", re.sub(r"[\r\n\t]+", " ", text)).strip()
 
 
-def _v1_patch(path: str, token: str, payload: dict, idempotency_key: str, dry: bool) -> tuple[int, object]:
+def _v1_patch(path: str, token: str, payload: dict, idempotency_key: str, dry: bool,
+              if_match: str | None = None) -> tuple[int, object]:
+    headers = {"Accept": "application/json", "X-API-Key": token, "X-Idempotency-Key": idempotency_key,
+               "X-External-User-Id": "mactool"}
+    if if_match:
+        headers["If-Match"] = if_match
     response = requests.patch(BASE + path, params={"dry_run": "true" if dry else "false"}, json=payload,
-                              timeout=60, headers={"Accept": "application/json", "X-API-Key": token,
-                                                   "X-Idempotency-Key": idempotency_key,
-                                                   "X-External-User-Id": "mactool"})
+                              timeout=60, headers=headers)
     return response.status_code, _body(response)
 
 
@@ -448,10 +454,20 @@ def custom_name(profile_id, value, expect, dry: bool = True) -> dict:
         return {**head, "status": "unchanged", "plan": plan, "before": current, "after": current}
 
     # Gleicher Auftrag = gleicher Schlüssel: wiederholt sich der Aufruf, ändert die Bot-App nicht doppelt.
-    idem = hashlib.sha256(f"{profile_id}|{current}|{new_name}|{'dry' if dry else 'live'}".encode()).hexdigest()[:40]
-    status, response = _v1_patch(plan["path"], token, plan["body"], idem, dry)
+    def idem(art: str) -> str:
+        return hashlib.sha256(f"{profile_id}|{current}|{new_name}|{art}".encode()).hexdigest()[:40]
+
+    # Immer zuerst der Probelauf: prüft Schlüssel/Recht und liefert den ETag für If-Match.
+    status, response = _v1_patch(plan["path"], token, plan["body"], idem("dry"), True)
+    etag = response.get("etag") if isinstance(response, dict) else None
+    if not dry and status == 200:
+        if not etag:
+            return refuse("Probelauf lieferte keinen ETag — ohne If-Match speichert die Bot-App nicht")
+        status, response = _v1_patch(plan["path"], token, plan["body"], idem("live"), False, if_match=etag)
     text = str(response).lower()
     hint = None
+    if status == 412:
+        hint = "Profil wurde zwischen Probelauf und Speichern geändert (ETag) — erneut versuchen"
     if status in (401, 403):
         hint = ("Der eingetragene Schlüssel darf /v1 nicht schreiben — nötig ist ein API-Schlüssel "
                 "(ak_live…) mit Recht settings:write (Bot-App › API Gateway)")

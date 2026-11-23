@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.167 — 2026-11-23
+- `bot-custom-name dry=false`: echtes Speichern scheiterte mit HTTP 428 `missing_if_match` — die Bot-App
+  verlangt für Profiländerungen `If-Match` mit dem ETag des Profils (der Probelauf nicht). Jetzt immer
+  erst der Probelauf (liefert `etag`), dann Speichern mit `If-Match`. Ändert sich das Profil dazwischen,
+  lehnt die Bot-App mit 412 ab (Ergebnis `failed` mit Hinweis). Belegt mac17, 23.11.
+
 ## v1.0.166 — 2026-11-23
 - Neu: `bot-custom-name profile=<ID> value=<neuer Name> expect=<aktueller Name> [dry=false]`
   (eingreifend): setzt den customName GENAU EINES Accounts über die Bot-App selbst
