@@ -386,6 +386,91 @@ def bot_config(profile_id, param: str, value, expect, dry: bool = True,
     return result
 
 
+# ── customName eines Accounts ändern (bot-custom-name) ────────────────
+#
+# Weg: die öffentliche Schnittstelle der Bot-App, lokal aufgerufen —
+#   PATCH /v1/profiles/{id}/settings?dry_run=true|false   {"custom_name": "…"}
+# (OpenAPI der Bot-App, Schema SettingsPatch; Pflicht-Kopfzeile X-Idempotency-Key). /v1 nimmt nur
+# einen API-Schlüssel (ak_live…) mit Recht settings:write, nicht den Admin-Schlüssel. Der Probelauf
+# (dry) geht ebenfalls an die Bot-App (dry_run=true) und prüft damit auch Schlüssel und Recht.
+# Vorher wird der aktuelle Name mit `expect` verglichen (kein Konfliktschutz in der Bot-App), hinterher
+# über /api/profiles/{id} nachgelesen. Genau EIN Account pro Aufruf. Anlass: Dashboard › Pro MAC.
+
+CUSTOM_NAME_MAX = 200
+
+
+def _clean_name(value) -> str:
+    """Einzeilig, ohne NUL (die Sync entfernt NUL ebenfalls), Mehrfach-Leerzeichen zusammengezogen."""
+    text = _text(value).replace("\x00", "")
+    return re.sub(r" {2,}", " ", re.sub(r"[\r\n\t]+", " ", text)).strip()
+
+
+def _v1_patch(path: str, token: str, payload: dict, idempotency_key: str, dry: bool) -> tuple[int, object]:
+    response = requests.patch(BASE + path, params={"dry_run": "true" if dry else "false"}, json=payload,
+                              timeout=60, headers={"Accept": "application/json", "X-API-Key": token,
+                                                   "X-Idempotency-Key": idempotency_key,
+                                                   "X-External-User-Id": "mactool"})
+    return response.status_code, _body(response)
+
+
+def custom_name(profile_id, value, expect, dry: bool = True) -> dict:
+    """customName EINES Accounts setzen. Standard: nur Probelauf der Bot-App (dry_run=true)."""
+    import hashlib
+
+    profile_id = _text(profile_id)
+    if profile_id.lower() in ("all", "new", "*") or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", profile_id):
+        raise BotLocalError("profile muss genau eine Account-ID sein (nie all/new)")
+    if expect is None:
+        raise BotLocalError("expect=<aktueller Name> fehlt (Schutz gegen veraltete Werte)")
+    new_name = _clean_name(value)
+    if not new_name:
+        raise BotLocalError("value (neuer Name) ist leer")
+    if len(new_name) > CUSTOM_NAME_MAX:
+        raise BotLocalError(f"Name zu lang ({len(new_name)} > {CUSTOM_NAME_MAX} Zeichen)")
+    token = get_config().bot_admin_token or ""
+    if not token:
+        raise BotLocalError("bot_admin_token ist nicht gesetzt")
+
+    before = full_profile(profile_id, token)
+    current = _clean_name(before.get("customName"))
+    head = {"profile": profile_id, "username": before.get("username"), "runState": before.get("runState")}
+
+    def refuse(reason: str) -> dict:
+        logger.info(f"Bot-App: bot-custom-name {profile_id} abgelehnt: {reason}")
+        return {**head, "status": "refused", "reason": reason, "before": current}
+
+    if before.get("platform") not in (None, "instagram"):
+        return refuse(f"Plattform {before.get('platform')} — nur instagram")
+    if current != _clean_name(expect):
+        return refuse(f"aktueller Name {current!r} ≠ expect {_clean_name(expect)!r}")
+    plan = {"method": "PATCH", "path": f"/v1/profiles/{profile_id}/settings", "body": {"custom_name": new_name}}
+    if current == new_name:
+        return {**head, "status": "unchanged", "plan": plan, "before": current, "after": current}
+
+    # Gleicher Auftrag = gleicher Schlüssel: wiederholt sich der Aufruf, ändert die Bot-App nicht doppelt.
+    idem = hashlib.sha256(f"{profile_id}|{current}|{new_name}|{'dry' if dry else 'live'}".encode()).hexdigest()[:40]
+    status, response = _v1_patch(plan["path"], token, plan["body"], idem, dry)
+    text = str(response).lower()
+    hint = None
+    if status in (401, 403):
+        hint = ("Der eingetragene Schlüssel darf /v1 nicht schreiben — nötig ist ein API-Schlüssel "
+                "(ak_live…) mit Recht settings:write (Bot-App › API Gateway)")
+        if "legacy" in text or "admin" in text:
+            hint = "bot_admin_token ist der Admin-Schlüssel; /v1 braucht einen API-Schlüssel (ak_live…) mit settings:write"
+    logger.info(f"Bot-App: bot-custom-name {profile_id} ({head['username']}) {current!r} -> {new_name!r} "
+                f"{'(dry) ' if dry else ''}HTTP {status}")
+    if dry:
+        result = {**head, "status": "dry" if status == 200 else "dry_failed", "http": status, "plan": plan,
+                  "before": current, "response": _short(response)}
+        return {**result, "hint": hint} if hint else result
+
+    after = _clean_name(full_profile(profile_id, token).get("customName"))
+    ok = status == 200 and after == new_name
+    result = {**head, "status": "ok" if ok else "failed", "http": status, "plan": plan,
+              "before": current, "after": after, "response": _short(response)}
+    return {**result, "hint": hint} if hint else result
+
+
 # ── bot-check: Zustand der Bot-App für die Automatik (rein lesend) ────
 #
 # Meldet NUR Ja/Nein und Zahlen (plus die Versionsnummer der Bot-App) — nie Schlüssel, URLs,

@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.0.166 — 2026-11-23
+- Neu: `bot-custom-name profile=<ID> value=<neuer Name> expect=<aktueller Name> [dry=false]`
+  (eingreifend): setzt den customName GENAU EINES Accounts über die Bot-App selbst
+  (`PATCH /v1/profiles/{id}/settings` mit `custom_name`, lokal auf 127.0.0.1:8765). Standard ist
+  der Probelauf der Bot-App (`dry_run=true`) — der prüft auch Schlüssel und Recht. Vorher Vergleich
+  mit `expect` (die Bot-App hat keinen Konfliktschutz), hinterher Nachlesen über `/api/profiles/{id}`.
+  Einzeilig, höchstens 200 Zeichen, fester X-Idempotency-Key je Auftrag.
+- Voraussetzung: `bot_admin_token` muss ein API-Schlüssel (`ak_live…`) mit Recht `settings:write`
+  sein — der Admin-Schlüssel wird von /v1 abgelehnt (Ergebnis `dry_failed` mit Hinweis).
+- Anlass: EBM-Dashboard › Serverkontrolle › Pro MAC › customName bearbeiten (Edge Function
+  `custom-name-setzen` stellt den Befehl ein).
+- Neu: `tests/test_custom_name.py`.
+
 ## v1.0.165 — 2026-11-23
 - Logs nie älter als 30 Tage: `logs/mactool.log` rotiert jetzt täglich (`mactool.log.JJJJ-MM-TT`),
   behalten werden heute + 29 Vortage. Gelöscht wird auch nach Datum (Mac war aus → Lücken), beim

@@ -298,6 +298,18 @@ def _cmd_bot_config(args: dict) -> dict:
         raise CommandError(str(e)) from e
 
 
+def _cmd_bot_custom_name(args: dict) -> dict:
+    """customName EINES Accounts ändern (Bot-App /v1 settings), mit expect + Nachlesen. Standard dry."""
+    import bot_local
+
+    if "expect" not in args:
+        raise CommandError("expect=<aktueller Name> fehlt")
+    try:
+        return bot_local.custom_name(args.get("profile"), args.get("value"), args.get("expect"), dry=_dry(args))
+    except bot_local.BotLocalError as e:
+        raise CommandError(str(e)) from e
+
+
 def _cmd_phone_info(args: dict) -> dict:
     """Uptime, Speicher, Samsung-Update-Pakete, adb, Modell, Instagram vorne? (nur lesend)."""
     import phone_control
@@ -710,6 +722,7 @@ HANDLERS: dict[str, tuple] = {
     "clone-install": (_cmd_clone_install, True),
     "bot-profile": (_cmd_bot_profile, True),
     "bot-config": (_cmd_bot_config, True),
+    "bot-custom-name": (_cmd_bot_custom_name, True),
     "phone-reboot": (_cmd_phone_reboot, True),
     "phone-reconnect": (_cmd_phone_reconnect, True),
     "uhubctl-install": (_cmd_uhubctl_install, True),
