@@ -74,7 +74,7 @@ def _cmd_logs(args: dict) -> dict:
     except re.error as e:
         raise CommandError(f"Ungültiges Suchmuster '{pattern}': {e}")
 
-    # Zeilenweise lesen statt readlines(): mactool.log darf 5 MB groß werden
+    # Zeilenweise lesen statt readlines(): mactool.log hält einen ganzen Tag
     # und der Filter wirft das meiste ohnehin weg.
     from collections import deque
 

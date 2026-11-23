@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.0.165 — 2026-11-23
+- Logs nie älter als 30 Tage: `logs/mactool.log` rotiert jetzt täglich (`mactool.log.JJJJ-MM-TT`),
+  behalten werden heute + 29 Vortage. Gelöscht wird auch nach Datum (Mac war aus → Lücken), beim
+  Start und um Mitternacht. Die alten `mactool.log.1–3` fallen weg.
+- Befund 23.11.: `logs/stderr.log` (345–629 MB) und `logs/stdout.log` (27–81 MB) wuchsen auf allen
+  13 Macs unbegrenzt — launchd rotiert nicht, und jede Logzeile ging doppelt nach stderr, dazu
+  das uvicorn-Access-Log. Unter launchd zeigen stdout/stderr jetzt auf das Tageslog (auch
+  Tracebacks, uvicorn, Unterprozesse); beide Dateien werden beim Start geleert, ihr Ende (z. B. ein
+  Absturz vor dem Start) wird ins Log übernommen. Access-Log aus.
+- Neu: `tests/test_logging.py`.
+
 ## v1.0.164 — 2026-11-17
 - Befund mac17: alle Genesys-Hubs melden sich bei uhubctl als `ganged`.
 - `phone-reconnect erzwingen=true` jetzt auch an ganged-Hubs (`uhubctl -f`): laut USB-Spezifikation

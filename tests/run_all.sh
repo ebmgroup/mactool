@@ -31,6 +31,7 @@ TESTS=(
   test_rollout.py      # Rollout: ein Handy, Original nur im Notfall entfernt, nie eine Kopie
   test_ig.py           # IG Versionen: App-Cloner-Ablauf, Auftraege, Bestand
   test_automatik.py    # bot-config, phone-info, samsung-updates, phone-reboot: dry, Schutz, Nachlesen
+  test_logging.py      # Tageslogs, nie aelter als 30 Tage, stdout/stderr unter launchd ins Tageslog
 )
 
 mkdir -p "$WORKDIR"

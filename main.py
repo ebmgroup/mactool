@@ -6,7 +6,6 @@ import signal
 import sys
 import argparse
 from pathlib import Path
-from logging.handlers import RotatingFileHandler
 
 import uvicorn
 
@@ -14,30 +13,10 @@ from config import get_config
 from scheduler import get_scheduler
 from bot_manager import run_bot_manager_job
 from api import app
+from log_setup import setup_logging
 
-# Setup logging
-LOG_DIR = Path("logs")
-LOG_DIR.mkdir(exist_ok=True)
-
-LOG_FILE = LOG_DIR / "mactool.log"
-LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-
-# Create rotating file handler
-file_handler = RotatingFileHandler(
-    LOG_FILE,
-    maxBytes=5 * 1024 * 1024,  # 5MB
-    backupCount=3,
-)
-file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
-
-# Create console handler
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(logging.Formatter(LOG_FORMAT))
-
-# Configure root logger
+LOG_DIR = Path(__file__).resolve().parent / "logs"
 logger = logging.getLogger()
-logger.addHandler(file_handler)
-logger.addHandler(console_handler)
 
 # Global state
 _scheduler = None
@@ -109,11 +88,7 @@ def main():
 
     args = parser.parse_args()
 
-    # Set log level
-    log_level = logging.DEBUG if args.debug else logging.INFO
-    logger.setLevel(log_level)
-    for handler in logger.handlers:
-        handler.setLevel(log_level)
+    setup_logging(LOG_DIR, logging.DEBUG if args.debug else logging.INFO)
 
     logger.info("=" * 80)
     logger.info("EBM Mactool started")
@@ -221,7 +196,8 @@ def main():
                 host="0.0.0.0",
                 port=args.web_port,
                 log_level="info",
-                access_log=True,
+                log_config=None,  # uvicorn-Meldungen ins Tageslog (log_setup), nicht eigene Handler
+                access_log=False,  # jede Dashboard-Abfrage einzeln — füllte stdout.log
             )
         else:
             # Keep running in foreground
